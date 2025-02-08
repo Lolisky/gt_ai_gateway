@@ -45,12 +45,11 @@ app.get('/initDatabase.json', async (c) => {
 
 app.post('/model/create.json', async (c) => {
   const body = await c.req.json();
-  const { name, vendor, url } = body;
+  const { name, vendor_id } = body;
 
   const instance = await SgModel.query().create({
     name,
-    vendor,
-    url,
+    vendor_id,
   });
 
   return c.json(instance);

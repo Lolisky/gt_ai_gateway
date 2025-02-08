@@ -5,6 +5,7 @@ import {CustomPromise} from "../util/enhanced";
 import { streamSSE, SSEStreamingApi} from 'hono/streaming'
 import {EventStreamContentType, fetchEventSource} from "@fortaine/fetch-event-source";
 import {SgUser} from "../model/sgUser";
+import {SgVendor} from "../model/sgVendor";
 
 
 async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel):Promise<Response>{
@@ -21,12 +22,15 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel):Promise
     let body: string = await c.req.text();
     console.log("body:", body);
 
+    //find vendor
+    const vendor:SgVendor|null = await SgVendor.query().where('id', modelConfig.vendor_id).first();
+
     let requestOptions = {
         method: 'POST',
         headers: {
             'accept': "*/*",
             'Content-Type': 'application/json',
-            "Authorization": user.token!,
+            "Authorization": vendor!.token!,
         },
         body: body,
     }
@@ -46,7 +50,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel):Promise
     console.log("do fetch upstream");
 
     //upstreamReqPromise =
-    upstreamReqPromise = fetchEventSource(modelConfig!.url!, {
+    upstreamReqPromise = fetchEventSource(vendor!.url!, {
         ...requestOptions,
         async onopen(response:Response) {
             if (response.ok && response.headers.get('content-type')?.startsWith(EventStreamContentType)) {
