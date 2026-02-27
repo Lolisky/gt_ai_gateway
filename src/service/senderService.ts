@@ -8,6 +8,7 @@ import {SgUser} from "../model/sgUser";
 import {SgVendor} from "../model/sgVendor";
 import recordService from "./recordService";
 import {SgRecordStatus} from "../constants";
+import {SSEAccumulator} from "../util/sseAccumulator";
 
 
 /**
@@ -33,6 +34,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
     let isStreamResponse: boolean = true;          // 是否为流式响应
     let upstreamStatusCode: StatusCode | null = null;    // 上游响应状态码
     let upstreamResponseText: string | null = null;     // 上游响应文本（非流式）
+    let sseAccumulator = new SSEAccumulator();   // SSE 消息累加器
 
     // 自定义 Promise，用于等待响应头到达（判断是否为流式）
     let getResponseHeaderPromise: CustomPromise<void> = new CustomPromise();
@@ -101,6 +103,11 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
         // 收到 SSE 消息时触发
         async onmessage(msg) {
             console.log("onMessage:", msg);
+
+            // 累积消息到累加器
+            const data = JSON.parse(msg.data);
+            sseAccumulator.addMessage(data);
+
             await streamOutputPipe!.writeSSE(msg);  // 将消息转发给客户端
         },
         // 连接关闭时触发
@@ -131,6 +138,12 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
             await upstreamReqPromise;   // 等待上游请求完成
             console.log("after upstreamReqReqromise finished", upstreamReqPromise);
 
+            // 流式响应完成后，保存完整响应到数据库
+            const fullResponse = sseAccumulator.getResponse();
+            await recordService.update(recordId, {
+                response_data: JSON.stringify(fullResponse),
+                status: SgRecordStatus.SUCCESS
+            });
         });
         return streamSSEResponse;
 
