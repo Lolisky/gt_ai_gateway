@@ -69,15 +69,17 @@ async function applyMigration(migration: Migration) {
 
   console.log('applyMigration - sqlPath:', sqlPath)
 
-  // 将 SQL 按分号分割并去除空语句
+  // D1 本地模式需要逐条执行 SQL
   const statements = sql
     .split(';')
     .map(s => s.trim())
     .filter(s => s.length > 0)
 
-  // 逐条执行迁移 SQL
   for (const statement of statements) {
-    await dbAdapter.exec(statement)
+    // D1 的 exec() 按行解析 SQL，多行的 CREATE TABLE 等语句会失败
+    // 将换行符替换为空格，确保每条语句为单行
+    const singleLine = statement.replace(/\n/g, ' ')
+    await dbAdapter.exec(singleLine + ';')
   }
 
   // 记录已应用的迁移

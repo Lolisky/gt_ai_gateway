@@ -28,6 +28,6 @@
     "better-sqlite3": "^12.6.2",
     "sqlite3": "^5.1.7",
     "vitest": "^4.0.18",
-    "wrangler": "^4.24.3"
+    "wrangler": "^4.69.0"
   }
 }
