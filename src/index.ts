@@ -1,7 +1,7 @@
 import { ormService } from './service/ormService'
 import { registerFile } from './service/fileService'
-import migrate_0001 from '../resource/migrate_0001.sql'
-import migrate_0002 from '../resource/migrate_0002.sql'
+import migrate_0001 from './resource/migrate_0001.sql'
+import migrate_0002 from './resource/migrate_0002.sql'
 import app from './routes'
 
 // 注册资源文件

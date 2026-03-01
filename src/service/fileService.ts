@@ -80,7 +80,7 @@ async function listFilesInNode(dirPath: string, pattern: string): Promise<string
   if (!existsSync(fullPath)) {
     return []
   }
-  
+
   const files: string[] = readdirSync(fullPath)
   return filterByPattern(files, pattern)
 }
