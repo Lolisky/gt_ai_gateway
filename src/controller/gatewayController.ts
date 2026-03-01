@@ -113,20 +113,15 @@ async function anthropicMessages(c: Context) {
         return c.json({ error: 'vendor not found' }, 401);
     }
 
-    try {
-        if (vendor?.url == null) {
-            if (vendor?.api_format === ApiFormat.ANTHROPIC) {
-                vendor.url = 'https://api.anthropic.com/v1/messages';
-            } else if (vendor?.type == "aliyun") {
-                vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-            }
+    if (vendor?.url == null) {
+        if (vendor?.api_format === ApiFormat.ANTHROPIC) {
+            vendor.url = 'https://api.anthropic.com/v1/messages';
+        } else if (vendor?.type == "aliyun") {
+            vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
         }
-
-        return await sender.sendRequest(c, user!, modelConfig!, vendor!);
-    } catch (e: any) {
-        console.error("Error in anthropicMessages route:", e);
-        return c.json({ error: "Internal Server Error", details: e.message }, 500);
     }
+
+    return await sender.sendRequest(c, user!, modelConfig!, vendor!);
 }
 
 export {
