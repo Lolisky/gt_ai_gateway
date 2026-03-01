@@ -4,7 +4,7 @@ import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 
 const args = process.argv.slice(2);
-const MIGRATION_DIR = join(process.cwd(), 'src', 'resource', 'migrate');
+const MIGRATION_DIR = join(process.cwd(), 'resource', 'migrate');
 const LOCAL_DB_PATH = join(process.cwd(), 'local.db');
 
 interface Migration {
@@ -169,7 +169,7 @@ async function migrate(adapter: DBAdapter, env: string) {
     }
 
     // 过滤并排序
-    const validFiles = available.filter(f => /^(\d{4})\.sql$/.test(f)).sort();
+    const validFiles = available.filter(f => /(\d{4})\.sql$/.test(f)).sort();
 
     const pendingMigrations = validFiles.filter(name => !appliedNames.has(name));
 
@@ -215,6 +215,7 @@ async function migrate(adapter: DBAdapter, env: string) {
 async function status(adapter: DBAdapter) {
     console.log('Initializing migrations table...');
     adapter.exec('CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL)');
+
     let applied: Migration[] = [];
     try {
         applied = adapter.query<Migration>('SELECT name, applied_at FROM _migrations ORDER BY name');
@@ -222,18 +223,38 @@ async function status(adapter: DBAdapter) {
         console.log('Error fetching applied migrations', e);
     }
 
-    if (applied.length === 0) {
-        console.log('No migrations have been applied.');
-    } else {
-        console.log(`\nApplied migrations (${applied.length}):`);
-        applied.forEach(m => {
-            console.log(`- ${m.name} (Applied at: ${m.applied_at || 'unknown'})`);
-        });
-
-        const last = applied[applied.length - 1];
-        const version = parseInt(last.name.match(/(\d{4})\.sql$/)?.[1] || '0', 10);
-        console.log(`\nCurrent Database Version: ${version}`);
+    let available: string[] = [];
+    try {
+        available = readdirSync(MIGRATION_DIR).filter(f => f.endsWith('.sql'));
+    } catch (e) {
+        console.warn(`Could not read migration directory: ${MIGRATION_DIR}`);
     }
+
+    const validFiles = available.filter(f => /(\d{4})\.sql$/.test(f)).sort();
+
+    console.log(`\n=== Migration Status ===`);
+
+    if (validFiles.length === 0) {
+        console.log('No migration files found in resource/migrate.');
+        return;
+    }
+
+    const appliedMap = new Map<string, string>();
+    applied.forEach(m => appliedMap.set(m.name, m.applied_at || 'unknown'));
+
+    validFiles.forEach(file => {
+        if (appliedMap.has(file)) {
+            console.log(`[x] ${file} (Applied at: ${appliedMap.get(file)})`);
+        } else {
+            console.log(`[ ] ${file} (Pending)`);
+        }
+    });
+
+    const lastApplied = applied.length > 0 ? applied[applied.length - 1] : null;
+    const version = lastApplied ? parseInt(lastApplied.name.match(/(\d{4})\.sql$/)?.[1] || '0', 10) : 0;
+
+    console.log(`\nCurrent Database Version: ${version}`);
+    console.log(`Migrations to apply: ${validFiles.length - applied.length}`);
 }
 
 async function clear(adapter: DBAdapter, env: string) {
