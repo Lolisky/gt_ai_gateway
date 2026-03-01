@@ -244,7 +244,7 @@ async function status(adapter: DBAdapter) {
 
     validFiles.forEach(file => {
         if (appliedMap.has(file)) {
-            console.log(`[x] ${file} (Applied at: ${appliedMap.get(file)})`);
+            console.log(`✅ ${file} (Applied at: ${appliedMap.get(file)})`);
         } else {
             console.log(`[ ] ${file} (Pending)`);
         }
@@ -265,7 +265,7 @@ async function clear(adapter: DBAdapter, env: string) {
     // 要真正交互确认可以引入 readline，这里简化为直接执行
     let tables: any[] = [];
     try {
-        tables = adapter.query<{ name: string }>('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%" AND name NOT LIKE "_cf_%" AND name NOT LIKE "d1_%"');
+        tables = adapter.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%'");
     } catch (e) {
         console.error('Failed to query tables:', e);
         return;
