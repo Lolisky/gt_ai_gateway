@@ -37,20 +37,31 @@ class ORMService {
     return this._dbAdapter;
   }
 
+  private _cloudConnected = false;
+
   async connectCloud(db: any) {
-    const ClientD1 = (await import('knex-cloudflare-d1')).default;
-    
     if (this._dbAdapter instanceof D1Adapter) {
       this._dbAdapter.setDB(db);
     }
 
-    sutando.addConnection({
-      client: ClientD1,
-      connection: {
-        database: db
-      },
-      useNullAsDefault: true,
-    });
+    if (!this._cloudConnected) {
+      const ClientD1 = (await import('knex-cloudflare-d1')).default;
+      
+      sutando.addConnection({
+        client: ClientD1,
+        connection: {
+          database: db
+        },
+        useNullAsDefault: true,
+        pool: {
+          min: 0,
+          max: 10, // 允许一定程度的并发
+          idleTimeoutMillis: 0, // 请求结束尽量快释放，不留给后台处理
+          reapIntervalMillis: 2147483647, // 实际上禁用后台清理扫描
+        }
+      });
+      this._cloudConnected = true;
+    }
   }
 
   async prepareDBConnection(db: any) {
