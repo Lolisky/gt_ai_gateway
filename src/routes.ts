@@ -1,5 +1,6 @@
 import { Hono, MiddlewareHandler, HTTPException } from "hono";
 import { join } from "path";
+import { readFileSync } from "fs";
 import gatewayController from "./controller/gatewayController";
 import modelController from "./controller/modelController";
 import userController from "./controller/userController";
@@ -85,26 +86,28 @@ app.post("/v1/messages", gatewayController.anthropicMessages);
 
 // SPA fallback - serve index.html for all non-API routes
 // This handles frontend routes like /dashboard, /vendor, etc.
-app.get("*", async (c) => {
+app.get("*", async (c, next) => {
     const url = new URL(c.req.url);
     const pathname = url.pathname;
 
-    // Skip API routes and static assets with extensions
-    if (pathname.startsWith("/v1/") ||
-        pathname.includes(".json") ||
-        pathname.includes(".js") ||
-        pathname.includes(".css") ||
-        pathname.includes(".svg") ||
-        pathname.includes(".png") ||
-        pathname.includes(".jpg") ||
-        pathname.includes(".ico") ||
-        pathname.includes(".woff") ||
-        pathname.includes(".woff2") ||
-        pathname.includes(".ttf")) {
+    // Let static assets pass through to static file middleware (node mode)
+    if (pathname.startsWith("/assets/") ||
+        pathname.endsWith(".svg") ||
+        pathname.endsWith(".png") ||
+        pathname.endsWith(".jpg") ||
+        pathname.endsWith(".ico") ||
+        pathname.endsWith(".woff") ||
+        pathname.endsWith(".woff2") ||
+        pathname.endsWith(".ttf")) {
+        return next();
+    }
+
+    // API routes should return 404
+    if (pathname.startsWith("/v1/") || pathname.includes(".json")) {
         return c.notFound();
     }
 
-    // Try to serve from Assets binding first
+    // Try to serve from Assets binding first (worker mode)
     if (c.env.ASSETS) {
         try {
             const response = await c.env.ASSETS.fetch(new Request("https://example.com/index.html"));
@@ -113,11 +116,28 @@ app.get("*", async (c) => {
                 return c.html(html, 200);
             }
         } catch (e) {
-            // Fall through to return index.html
+            // Fall through to serve index.html directly
         }
     }
 
-    return c.notFound();
+    // Serve index.html directly (node mode or fallback)
+    try {
+        const distPath = join(process.cwd(), "frontend", "dist");
+        const indexHtml = readFileSync(join(distPath, "index.html"), "utf-8");
+        return c.html(indexHtml, 200);
+    } catch (e) {
+        return c.notFound();
+    }
+});
+
+// Custom 404 handler for API routes
+app.notFound((c) => {
+    // Return JSON error for API routes
+    if (c.req.path.startsWith("/v1/") || c.req.path.includes(".json")) {
+        return c.json({ error: "Not found" }, 404);
+    }
+    // Default 404 for non-API routes
+    return c.text("404 Not Found", 404);
 });
 
 export { app, Env };

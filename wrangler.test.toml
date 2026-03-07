@@ -15,3 +15,7 @@ database_id = "test-database-id"
 [observability]
 enabled = true
 head_sampling_rate = 1
+
+[assets]
+directory = "frontend/dist"
+binding = "ASSETS"

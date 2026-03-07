@@ -1,7 +1,7 @@
 import { join } from "path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { createMiddleware } from "hono/factory";
+import { readFileSync } from "fs";
 import ormService from "./service/ormService";
 import app, { Env } from "./routes";
 import initLogger, { Logger } from "./util/logger";
@@ -83,21 +83,50 @@ async function startServer() {
 
     // Static file serving (frontend) - only for local development
     const distPath = join(process.cwd(), "frontend", "dist");
-    app.use("/assets/*", serveStatic({ root: distPath }));
-    app.use("/*.svg", serveStatic({ root: distPath }));
+
+    // Pre-read index.html for SPA fallback
+    let indexHtml: string;
+    try {
+        indexHtml = readFileSync(join(distPath, "index.html"), "utf-8");
+    } catch (e) {
+        console.warn("Could not read index.html, SPA fallback will not work:", e);
+        indexHtml = "<!doctype html><html><body>Frontend not built</body></html>";
+    }
 
     // SPA fallback - return index.html for all non-API routes
-    app.get("*", async (c) => {
+    // This must be registered BEFORE static file serving to handle non-existent files
+    app.get("*", async (c, next) => {
         const url = new URL(c.req.url);
+        const pathname = url.pathname;
+
+        // Let asset files pass through to serveStatic middleware
+        if (pathname.startsWith("/assets/")) {
+            return next();
+        }
+
+        // Handle SVG files directly
+        if (pathname.endsWith(".svg")) {
+            try {
+                const fileName = pathname.substring(1); // Remove leading /
+                const filePath = join(distPath, fileName);
+                const content = readFileSync(filePath, "utf-8");
+                return c.body(content, 200, { "Content-Type": "image/svg+xml" });
+            } catch (e) {
+                return c.notFound();
+            }
+        }
 
         // Skip API routes
-        if (url.pathname.startsWith("/v1/") || url.pathname.includes(".json")) {
+        if (pathname.startsWith("/v1/") || pathname.includes(".json")) {
             return c.json({ error: "Not found" }, 404);
         }
 
         // Return index.html for SPA routing
-        return serveStatic({ root: distPath, path: "/index.html" })(c);
+        return c.html(indexHtml, 200);
     });
+
+    // Static file serving for assets only (JS, CSS)
+    app.use("/assets/*", serveStatic({ root: distPath }));
 
     serve({
         fetch: (request) => app.fetch(request, bindings),
