@@ -5,8 +5,15 @@ import { SgVendor } from "../model/sgVendor";
 import { SgModel } from "../model/sgModel";
 import { SgRecord } from "../model/sgRecord";
 
-// 服务器启动时间
-const START_TIME = new Date();
+// 当前实例的启动时间（延迟初始化，避免 Workers 模块加载时日期异常）
+let INSTANCE_START_TIME: Date | null = null;
+
+function getInstanceStartTime(): Date {
+    if (!INSTANCE_START_TIME) {
+        INSTANCE_START_TIME = new Date();
+    }
+    return INSTANCE_START_TIME;
+}
 
 function formatUptime(startTime: Date): string {
     const now = new Date();
@@ -17,11 +24,11 @@ function formatUptime(startTime: Date): string {
     const days = Math.floor(hours / 24);
 
     if (days > 0) {
-        return `${days}天 ${hours % 24}小时`;
+        return `${days}天 ${hours % 24}小时 ${minutes % 60}分钟 ${seconds % 60}秒`;
     } else if (hours > 0) {
-        return `${hours}小时 ${minutes % 60}分钟`;
+        return `${hours}小时 ${minutes % 60}分钟 ${seconds % 60}秒`;
     } else if (minutes > 0) {
-        return `${minutes}分钟`;
+        return `${minutes}分钟 ${seconds % 60}秒`;
     } else {
         return `${seconds}秒`;
     }
@@ -42,6 +49,8 @@ async function status(c: Context) {
         const modelCount = await SgModel.query().count();
         const recordCount = await SgRecord.query().count();
 
+        const startTime = getInstanceStartTime();
+
         return c.json({
             status: "ok",
             mode: ormService.mode,
@@ -54,8 +63,8 @@ async function status(c: Context) {
             system: {
                 environment: ormService.mode === "cloud" ? "Cloudflare Workers" : "Local",
                 version: process.env.npm_package_version || "1.0.0",
-                startTime: START_TIME.toISOString(),
-                uptime: formatUptime(START_TIME),
+                startTime: startTime.toISOString(),
+                uptime: formatUptime(startTime),
             },
             timestamp: new Date().toISOString(),
         });
