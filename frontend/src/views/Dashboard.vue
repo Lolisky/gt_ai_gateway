@@ -1,31 +1,99 @@
 <template>
     <div class="dashboard">
+        <!-- 统计卡片区域 -->
+        <div class="stats-header">
+            <h2 class="section-title">今日统计</h2>
+            <a-space>
+                <span v-if="lastUpdated" class="last-updated">
+                    最后更新: {{ formatTime(lastUpdated) }}
+                </span>
+                <a-tooltip title="自动刷新">
+                    <a-switch
+                        v-model:checked="autoRefreshEnabled"
+                        checked-children="开"
+                        un-checked-children="关"
+                        @change="handleAutoRefreshChange"
+                    />
+                </a-tooltip>
+                <a-button
+                    type="primary"
+                    size="small"
+                    :loading="statsStore.loading"
+                    @click="handleRefresh"
+                >
+                    刷新
+                </a-button>
+            </a-space>
+        </div>
+
         <a-row :gutter="[16, 16]">
+            <a-col :span="6">
+                <StatisticCard
+                    title="今日请求数"
+                    :value="statsStore.stats?.today_requests || 0"
+                    :loading="statsStore.loading"
+                    :icon="BarChartOutlined"
+                    color="#1890ff"
+                />
+            </a-col>
+            <a-col :span="6">
+                <StatisticCard
+                    title="请求成功率"
+                    :value="(statsStore.stats?.success_rate || 0) * 100"
+                    :precision="1"
+                    suffix="%"
+                    :loading="statsStore.loading"
+                    :icon="CheckCircleOutlined"
+                    color="#52c41a"
+                />
+            </a-col>
+            <a-col :span="6">
+                <StatisticCard
+                    title="活跃用户"
+                    :value="statsStore.stats?.active_users || 0"
+                    :loading="statsStore.loading"
+                    :icon="UserOutlined"
+                    color="#722ed1"
+                />
+            </a-col>
+            <a-col :span="6">
+                <StatisticCard
+                    title="活跃模型"
+                    :value="statsStore.stats?.active_models || 0"
+                    :loading="statsStore.loading"
+                    :icon="RobotOutlined"
+                    color="#eb2f96"
+                />
+            </a-col>
+        </a-row>
+
+        <!-- 原有系统统计 -->
+        <a-row :gutter="[16, 16]" style="margin-top: 16px;">
             <a-col :span="5">
                 <StatusCard
                     title="用户总数"
-                    :value="stats.userCount"
+                    :value="systemStats.userCount"
                     :loading="loading"
                 />
             </a-col>
             <a-col :span="5">
                 <StatusCard
                     title="供应商总数"
-                    :value="stats.vendorCount"
+                    :value="systemStats.vendorCount"
                     :loading="loading"
                 />
             </a-col>
             <a-col :span="5">
                 <StatusCard
                     title="模型总数"
-                    :value="stats.modelCount"
+                    :value="systemStats.modelCount"
                     :loading="loading"
                 />
             </a-col>
             <a-col :span="5">
                 <StatusCard
                     title="请求总数"
-                    :value="stats.recordCount"
+                    :value="systemStats.recordCount"
                     :loading="loading"
                 />
             </a-col>
@@ -39,6 +107,41 @@
             </a-col>
         </a-row>
 
+        <!-- 最近请求记录 -->
+        <a-card
+            title="最近请求"
+            class="recent-records-card"
+            :loading="statsStore.loading"
+        >
+            <a-table
+                :columns="recentColumns"
+                :data-source="statsStore.recentRecords"
+                :pagination="false"
+                size="small"
+                :row-key="(record: any) => record.id"
+            >
+                <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'status'">
+                        <a-tag :color="getStatusColor(record.status)">
+                            {{ getStatusText(record.status) }}
+                        </a-tag>
+                    </template>
+                    <template v-if="column.key === 'created_at'">
+                        {{ formatDate(record.created_at) }}
+                    </template>
+                    <template v-if="column.key === 'action'">
+                        <a-button type="link" size="small" @click="handleViewRecord(record.id)">
+                            查看
+                        </a-button>
+                    </template>
+                </template>
+            </a-table>
+            <div v-if="statsStore.recentRecords.length === 0" class="empty-records">
+                暂无请求记录
+            </div>
+        </a-card>
+
+        <!-- 系统信息 -->
         <a-card title="系统信息" style="margin-top: 16px" :loading="loading">
             <a-descriptions :column="2" bordered>
                 <a-descriptions-item label="环境">
@@ -59,16 +162,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import {
+    BarChartOutlined,
+    CheckCircleOutlined,
+    UserOutlined,
+    RobotOutlined,
+} from '@ant-design/icons-vue';
 import { listUsers } from '@/api/user';
 import { listVendors } from '@/api/vendor';
 import { listModels } from '@/api/model';
 import { status } from '@/api/system';
+import { useStatsStore } from '@/stores/stats';
+import { useAutoRefresh } from '@/composables/useAutoRefresh';
 import { formatDate } from '@/utils/format';
 import StatusCard from '@/components/common/StatusCard.vue';
+import StatisticCard from '@/components/common/StatisticCard.vue';
+const statsStore = useStatsStore();
+const router = useRouter();
 
 const loading = ref(false);
-const stats = ref({
+const systemStats = ref({
     userCount: 0,
     vendorCount: 0,
     modelCount: 0,
@@ -83,53 +198,66 @@ const systemInfo = ref({
     uptime: '',
 });
 
+const autoRefreshEnabled = ref(false);
+
+const lastUpdated = computed(() => statsStore.lastUpdated);
+
 // 保存服务器启动时间
 const serverStartTime = ref<Date | null>(null);
 // 定时器引用
 let uptimeTimer: number | null = null;
 
-/**
- * 计算运行时长
- */
-function formatUptime(startTime: Date): string {
-    const now = new Date();
-    const diff = now.getTime() - startTime.getTime();
-    const totalSeconds = Math.floor(diff / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+const recentColumns = [
+    { title: 'ID', key: 'id', dataIndex: 'id', width: 60 },
+    { title: '用户', key: 'user_name', dataIndex: 'user_name' },
+    { title: '模型', key: 'model_name', dataIndex: 'model_name' },
+    { title: '状态', key: 'status', dataIndex: 'status', width: 80 },
+    { title: '时间', key: 'created_at', dataIndex: 'created_at', width: 150 },
+    { title: '操作', key: 'action', width: 60 },
+];
 
-    const parts: string[] = [];
-    if (days > 0) parts.push(`${days}天`);
-    if (hours > 0) parts.push(`${hours}小时`);
-    if (minutes > 0) parts.push(`${minutes}分钟`);
-    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}秒`);
-
-    return parts.join(' ');
-}
-
-/**
- * 更新运行时间
- */
-function updateUptime() {
-    if (serverStartTime.value) {
-        systemInfo.value.uptime = formatUptime(serverStartTime.value);
-    }
-}
+// 自动刷新
+const { start: startAutoRefresh, stop: stopAutoRefresh } = useAutoRefresh({
+    callback: () => {
+        refreshAll();
+    },
+    defaultInterval: 30000,
+    immediate: false,
+});
 
 onMounted(() => {
-    loadData();
+    loadSystemData();
+    refreshAll();
 });
 
 onUnmounted(() => {
+    stopAutoRefresh();
     if (uptimeTimer) {
         clearInterval(uptimeTimer);
         uptimeTimer = null;
     }
 });
 
-async function loadData() {
+async function refreshAll() {
+    await Promise.all([
+        statsStore.refreshAll(),
+    ]);
+}
+
+function handleRefresh() {
+    refreshAll();
+    loadSystemData();
+}
+
+function handleAutoRefreshChange(checked: boolean) {
+    if (checked) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
+}
+
+async function loadSystemData() {
     loading.value = true;
     try {
         const [users, vendors, models, systemStatusData] = await Promise.all([
@@ -139,7 +267,7 @@ async function loadData() {
             status().catch(() => null),
         ]);
 
-        stats.value = {
+        systemStats.value = {
             userCount: users.length,
             vendorCount: vendors.length,
             modelCount: models.length,
@@ -160,7 +288,7 @@ async function loadData() {
             };
             systemStatus.value = '正常';
 
-            // 启动定时更新运行时间（每秒更新一次）
+            // 启动定时更新运行时间
             if (uptimeTimer) {
                 clearInterval(uptimeTimer);
             }
@@ -175,12 +303,101 @@ async function loadData() {
         loading.value = false;
     }
 }
+
+function formatUptime(startTime: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - startTime.getTime();
+    const totalSeconds = Math.floor(diff / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}天`);
+    if (hours > 0) parts.push(`${hours}小时`);
+    if (minutes > 0) parts.push(`${minutes}分钟`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}秒`);
+
+    return parts.join(' ');
+}
+
+function updateUptime() {
+    if (serverStartTime.value) {
+        systemInfo.value.uptime = formatUptime(serverStartTime.value);
+    }
+}
+
+function handleViewRecord(id: number) {
+    router.push(`/record/${id}`);
+}
+
+function getStatusColor(status: string): string {
+    switch (status) {
+        case 'success':
+            return 'success';
+        case 'failed':
+            return 'error';
+        case 'processing':
+            return 'processing';
+        case 'init':
+        default:
+            return 'default';
+    }
+}
+
+function getStatusText(status: string): string {
+    switch (status) {
+        case 'success':
+            return '成功';
+        case 'failed':
+            return '失败';
+        case 'processing':
+            return '处理中';
+        case 'init':
+            return '初始化';
+        default:
+            return '未知';
+    }
+}
+
+function formatTime(date: Date): string {
+    return date.toLocaleTimeString();
+}
 </script>
 
 <style scoped>
 .dashboard {
     background: #fff;
     padding: 24px;
+}
+
+.stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.last-updated {
+    font-size: 12px;
+    color: #8c8c8c;
+}
+
+.recent-records-card {
+    margin-top: 16px;
+}
+
+.empty-records {
+    text-align: center;
+    padding: 40px;
+    color: #8c8c8c;
 }
 
 .dashboard :deep(.ant-descriptions-item-label) {

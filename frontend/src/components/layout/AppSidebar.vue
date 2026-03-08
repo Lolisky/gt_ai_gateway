@@ -23,6 +23,14 @@
                     <SettingOutlined />
                     <span>模型管理</span>
                 </a-menu-item>
+                <a-menu-item key="/record">
+                    <FileTextOutlined />
+                    <span>请求记录</span>
+                </a-menu-item>
+                <a-menu-item key="/api-test">
+                    <ExperimentOutlined />
+                    <span>API 测试</span>
+                </a-menu-item>
             </a-menu>
         </div>
     </div>
@@ -31,7 +39,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { DashboardOutlined, UserOutlined, ApiOutlined, SettingOutlined } from '@ant-design/icons-vue';
+import { DashboardOutlined, UserOutlined, ApiOutlined, SettingOutlined, FileTextOutlined, ExperimentOutlined } from '@ant-design/icons-vue';
 import { useAppStore } from '@/stores/app';
 
 const router = useRouter();
@@ -45,6 +53,8 @@ const selectedKeys = computed(() => {
     if (path.startsWith('/user')) return ['/user'];
     if (path.startsWith('/vendor')) return ['/vendor'];
     if (path.startsWith('/model')) return ['/model'];
+    if (path.startsWith('/record')) return ['/record'];
+    if (path.startsWith('/api-test')) return ['/api-test'];
     return [path];
 });
 

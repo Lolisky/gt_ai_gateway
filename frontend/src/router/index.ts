@@ -75,6 +75,30 @@ const routes: RouteRecordRaw[] = [
                     },
                 ],
             },
+            {
+                path: 'record',
+                name: 'Record',
+                component: () => import('@/views/Record/Index.vue'),
+                meta: { title: '请求记录' },
+                children: [
+                    {
+                        path: '',
+                        name: 'RecordList',
+                        component: () => import('@/views/Record/List.vue'),
+                    },
+                    {
+                        path: ':id',
+                        name: 'RecordDetail',
+                        component: () => import('@/views/Record/Detail.vue'),
+                    },
+                ],
+            },
+            {
+                path: 'api-test',
+                name: 'ApiTest',
+                component: () => import('@/views/ApiTest/Index.vue'),
+                meta: { title: 'API 测试' },
+            },
         ],
     },
 ];

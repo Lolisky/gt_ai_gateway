@@ -7,6 +7,7 @@ import userController from "./controller/userController";
 import vendorController from "./controller/vendorController";
 import recordController from "./controller/recordController";
 import systemController from "./controller/systemController";
+import statsController from "./controller/statsController";
 import ormService from "./service/ormService";
 import authMiddleware from "./middleware/authMiddleware";
 import errorHandler from "./util/errorHandler";
@@ -79,6 +80,10 @@ app.post("/user/create.json", authMiddleware.requireAdmin, userController.create
 app.get("/record/list.json", authMiddleware.requireAdmin, recordController.listRecords);
 app.get("/record/latest.json", authMiddleware.requireAdmin, recordController.latestRecords);
 app.get("/record/:id", authMiddleware.requireAdmin, recordController.getRecord);
+
+// Stats (需要管理员权限)
+app.get("/stats/dashboard.json", authMiddleware.requireAdmin, statsController.dashboardStats);
+app.get("/stats/recent.json", authMiddleware.requireAdmin, statsController.recentRecords);
 
 // AI endpoints (no auth middleware)
 app.post("/v1/chat/completions", gatewayController.chatCompletions);
