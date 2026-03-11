@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+    app:
+        build: .
+        container_name: serverless-ai-gateway
+        ports:
+            - "8787:8787"
+        environment:
+            - NODE_ENV=production
+            - PORT=8787
+            - DB_PATH=/app/data/local.db
+            - ROOT_TOKEN=${ROOT_TOKEN:-your-secret-root-token-change-this}
+        volumes:
+            - ./data:/app/data
+            - ./log:/app/log
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "node", "-e", "require('http').get('http://localhost:8787/welcome', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+            interval: 30s
+            timeout: 3s
+            retries: 3
+            start_period: 5s
+        networks:
+            - ai-gateway-network
+
+networks:
+    ai-gateway-network:
+        driver: bridge

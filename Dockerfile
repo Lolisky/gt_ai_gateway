@@ -1,0 +1,59 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 复制后端依赖文件
+COPY package*.json ./
+
+# 安装后端依赖
+RUN npm ci
+
+# 复制前端依赖文件
+COPY frontend/package*.json ./frontend/
+
+# 安装前端依赖
+RUN cd frontend && npm ci
+
+# 复制源代码
+COPY . .
+
+# 构建前端
+RUN npm run frontend:build
+
+# 编译 TypeScript（如果需要）
+# 注意：项目使用 tsx 运行，不需要编译，但为了优化可以添加
+
+# 生产镜像
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 只复制生产依赖
+COPY package*.json ./
+RUN npm ci --production
+
+# 复制构建产物和源代码
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/frontend/dist ./frontend/dist
+
+# 创建日志目录
+RUN mkdir -p /app/log
+
+# 创建数据库文件目录
+RUN mkdir -p /app/data
+
+# 暴露端口
+EXPOSE 8787
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:8787/welcome', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV PORT=8787
+ENV DB_PATH=/app/data/local.db
+
+# 启动应用
+CMD ["npm", "run", "backend:start"]

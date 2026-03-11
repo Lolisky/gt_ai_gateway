@@ -1,0 +1,40 @@
+# 依赖
+node_modules
+frontend/node_modules
+.npm
+
+# 日志
+logs
+*.log
+log
+
+# 数据库
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# IDE
+.vscode
+.idea
+
+# Git
+.git
+.github
+
+# 开发环境文件
+.env
+.env.*
+.dev.vars
+
+# 构建缓存
+.wrangler
+dist
+coverage
+
+# 临时文件
+.DS_Store
+*.tmp
+
+# 测试资源
+resource/test_real_config.json

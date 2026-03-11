@@ -65,6 +65,68 @@ npm run backend:dev
 npm run backend:deploy
 ```
 
+### Docker 部署
+
+#### 使用 Docker Compose
+
+创建 `.env` 文件配置环境变量：
+
+```bash
+ROOT_TOKEN=your-secret-root-token
+PORT=8787
+DB_PATH=/app/data/local.db
+```
+
+启动服务：
+
+```bash
+docker-compose up -d
+```
+
+查看日志：
+
+```bash
+docker-compose logs -f app
+```
+
+停止服务：
+
+```bash
+docker-compose down
+```
+
+#### 使用 Docker 直接构建和运行
+
+```bash
+# 构建镜像
+docker build -t serverless-ai-gateway .
+
+# 运行容器
+docker run -d \
+    --name serverless-ai-gateway \
+    -p 8787:8787 \
+    -v $(pwd)/data:/app/data \
+    -e ROOT_TOKEN=your-secret-root-token \
+    serverless-ai-gateway
+```
+
+#### 使用 GitHub Container Registry
+
+从 GitHub Container Registry 拉取并运行：
+
+```bash
+# 拉取最新镜像
+docker pull ghcr.io/your-username/serverless_ai_gateway:latest
+
+# 运行容器
+docker run -d \
+    --name serverless-ai-gateway \
+    -p 8787:8787 \
+    -v $(pwd)/data:/app/data \
+    -e ROOT_TOKEN=your-secret-root-token \
+    ghcr.io/your-username/serverless_ai_gateway:latest
+```
+
 ### 测试
 
 #### 运行所有测试
