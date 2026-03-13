@@ -66,18 +66,28 @@ async function loadVendor(id: number) {
 
 function getTypeLabel(type: VendorType): string {
     const labels: Record<VendorType, string> = {
+        aliyun: 'Aliyun (通义千问)',
+        aliyun_coding: 'Aliyun Coding',
+        volcengine_coding: 'Volcengine Coding',
+        deepseek: 'DeepSeek',
         openai: 'OpenAI',
         anthropic: 'Anthropic',
         google: 'Google',
+        other: 'Other',
     };
     return labels[type] || type;
 }
 
 function getTypeColor(type: VendorType): string {
     const colors: Record<VendorType, string> = {
+        aliyun: 'orange',
+        aliyun_coding: 'orange',
+        volcengine_coding: 'purple',
+        deepseek: 'blue',
         openai: 'green',
         anthropic: 'orange',
         google: 'blue',
+        other: 'default',
     };
     return colors[type] || 'default';
 }

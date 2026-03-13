@@ -16,9 +16,14 @@
                         style="width: 120px"
                         allow-clear
                     >
+                        <a-select-option value="aliyun">Aliyun (通义千问)</a-select-option>
+                        <a-select-option value="aliyun_coding">Aliyun Coding</a-select-option>
+                        <a-select-option value="volcengine_coding">Volcengine Coding</a-select-option>
+                        <a-select-option value="deepseek">DeepSeek</a-select-option>
                         <a-select-option value="openai">OpenAI</a-select-option>
                         <a-select-option value="anthropic">Anthropic</a-select-option>
                         <a-select-option value="google">Google</a-select-option>
+                        <a-select-option value="other">Other</a-select-option>
                     </a-select>
                 </a-form-item>
                 <a-form-item>
@@ -166,18 +171,28 @@ function handleDelete(record: Vendor) {
 
 function getTypeLabel(type: VendorType): string {
     const labels: Record<VendorType, string> = {
+        aliyun: 'Aliyun (通义千问)',
+        aliyun_coding: 'Aliyun Coding',
+        volcengine_coding: 'Volcengine Coding',
+        deepseek: 'DeepSeek',
         openai: 'OpenAI',
         anthropic: 'Anthropic',
         google: 'Google',
+        other: 'Other',
     };
     return labels[type] || type;
 }
 
 function getTypeColor(type: VendorType): string {
     const colors: Record<VendorType, string> = {
+        aliyun: 'orange',
+        aliyun_coding: 'orange',
+        volcengine_coding: 'purple',
+        deepseek: 'blue',
         openai: 'green',
         anthropic: 'orange',
         google: 'blue',
+        other: 'default',
     };
     return colors[type] || 'default';
 }

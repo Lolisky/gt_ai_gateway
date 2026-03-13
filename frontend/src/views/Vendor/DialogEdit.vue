@@ -99,7 +99,7 @@ const URL_TYPES = [
 const currentId = ref<number>(0);
 
 const formState = reactive({
-    type: 'openai' as 'openai' | 'anthropic' | 'google',
+    type: 'openai' as VendorType,
     name: '',
     token: '',
 });
