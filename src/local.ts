@@ -121,7 +121,7 @@ async function startServer() {
         }
 
         // Skip API routes
-        if (pathname.startsWith("/v1/") || pathname.includes(".json")) {
+        if (pathname.startsWith("/v1/") || pathname.startsWith("/llm/") || pathname.includes(".json")) {
             return c.json({ error: "Not found" }, 404);
         }
 

@@ -31,7 +31,7 @@ export async function chatCompletions(
     if (!stream) {
         // 非流式请求
         try {
-            const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+            const response = await fetch(`${API_BASE_URL}/llm/v1/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -62,7 +62,7 @@ export async function chatCompletions(
     let fullContent = '';
 
     try {
-        await fetchEventSource(`${API_BASE_URL}/v1/chat/completions`, {
+        await fetchEventSource(`${API_BASE_URL}/llm/v1/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ export async function anthropicMessages(
     if (!stream) {
         // 非流式请求
         try {
-            const response = await fetch(`${API_BASE_URL}/v1/messages`, {
+            const response = await fetch(`${API_BASE_URL}/llm/v1/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -175,7 +175,7 @@ export async function anthropicMessages(
     let fullContent = '';
 
     try {
-        await fetchEventSource(`${API_BASE_URL}/v1/messages`, {
+        await fetchEventSource(`${API_BASE_URL}/llm/v1/messages`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
