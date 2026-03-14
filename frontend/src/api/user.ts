@@ -1,8 +1,8 @@
 import request from '../utils/request';
 import type { User, CreateUserRequest } from '../types/user';
 
-export async function listUsers(): Promise<User[]> {
-    return request.get('/user/list.json');
+export async function listUsers(params?: any): Promise<User[]> {
+    return request.get('/user/list.json', { params });
 }
 
 export async function fetchUsersByIds(ids: number[]): Promise<User[]> {

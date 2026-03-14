@@ -1,8 +1,8 @@
 import request from '../utils/request';
 import type { Vendor, CreateVendorRequest, UpdateVendorRequest } from '../types/vendor';
 
-export async function listVendors(): Promise<Vendor[]> {
-    return request.get('/vendor/list.json');
+export async function listVendors(params?: any): Promise<Vendor[]> {
+    return request.get('/vendor/list.json', { params });
 }
 
 export async function fetchVendorsByIds(ids: number[]): Promise<Vendor[]> {

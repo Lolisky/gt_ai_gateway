@@ -245,10 +245,6 @@ function loadHistory(item: ApiTestHistory) {
     message.success('已加载历史配置');
 }
 
-function removeHistory(id: string) {
-    apiTestStore.removeHistoryItem(id);
-}
-
 function formatTime(timestamp: number): string {
     return new Date(timestamp).toLocaleString();
 }
