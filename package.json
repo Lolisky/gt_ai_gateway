@@ -1,6 +1,6 @@
 {
   "name": "serverless_ai_gateway",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "scripts": {
     "frontend:build": "cd frontend && npm run build",
     "frontend:build:dev": "cd frontend && npm run build -- --mode development",
@@ -20,6 +20,7 @@
     "backend:test:node": "TEST_MODE=node vitest --run --config vitest.config.ts",
     "backend:test:worker": "TEST_MODE=worker vitest --run --config vitest.worker.config.ts",
     "backend:test:all": "npm run backend:test:node && npm run backend:test:worker",
+    "predeploy": "npm run frontend:build",
     "deploy": "wrangler deploy --minify",
     "db:init:local": "npx tsx script/db.ts init --env local",
     "db:migrate:local": "npx tsx script/db.ts migrate --env local",
