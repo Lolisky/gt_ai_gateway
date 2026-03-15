@@ -16,7 +16,18 @@
             </template>
             <template v-else-if="column.key === 'token_stats'">
                 <div class="metric-cell">
-                    <div>{{ formatTokenStats(record) }}</div>
+                    <div v-if="record.prompt_tokens !== null || record.output_tokens !== null">
+                        <span class="token-item" title="输入 Token">
+                            <ArrowUpOutlined class="token-icon input" />
+                            {{ record.prompt_tokens ?? 0 }}
+                        </span>
+                        <span class="token-divider">/</span>
+                        <span class="token-item" title="输出 Token">
+                            <ArrowDownOutlined class="token-icon output" />
+                            {{ record.output_tokens ?? 0 }}
+                        </span>
+                    </div>
+                    <div v-else>-</div>
                 </div>
             </template>
             <template v-else-if="column.key === 'timing'">
@@ -42,6 +53,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { formatDate } from '@/utils/format';
 import type { Record } from '@/types/record';
 import dayjs from 'dayjs';
@@ -88,17 +100,6 @@ function handleTableChange(pag: any) {
 
 function handleView(record: Record) {
     router.push(`/record/${record.id}`);
-}
-
-function formatTokenStats(record: Record): string {
-    const prompt = record.prompt_tokens ?? 0;
-    const output = record.output_tokens ?? 0;
-
-    if (record.prompt_tokens === null && record.output_tokens === null) {
-        return '-';
-    }
-
-    return `${prompt} / ${output}`;
 }
 
 function normalizeTimestamp(value: string | number | null): number | null {
@@ -163,6 +164,29 @@ function getStatusText(status: string | null): string {
 <style scoped>
 .metric-cell {
     line-height: 1.4;
+}
+
+.token-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.token-icon {
+    font-size: 12px;
+}
+
+.token-icon.input {
+    color: #1890ff;
+}
+
+.token-icon.output {
+    color: #52c41a;
+}
+
+.token-divider {
+    margin: 0 4px;
+    color: #d9d9d9;
 }
 
 .metric-sub {

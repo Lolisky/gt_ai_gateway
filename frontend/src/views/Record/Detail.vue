@@ -31,10 +31,16 @@
                             {{ formatDate(recordStore.currentRecord.created_at) }}
                         </a-descriptions-item>
                         <a-descriptions-item label="提示词 Token" v-if="recordStore.currentRecord.prompt_tokens">
-                            {{ recordStore.currentRecord.prompt_tokens }}
+                            <span class="token-item">
+                                <ArrowUpOutlined class="token-icon input" />
+                                {{ recordStore.currentRecord.prompt_tokens }}
+                            </span>
                         </a-descriptions-item>
                         <a-descriptions-item label="输出 Token" v-if="recordStore.currentRecord.output_tokens">
-                            {{ recordStore.currentRecord.output_tokens }}
+                            <span class="token-item">
+                                <ArrowDownOutlined class="token-icon output" />
+                                {{ recordStore.currentRecord.output_tokens }}
+                            </span>
                         </a-descriptions-item>
                         <a-descriptions-item label="首 Token 延迟" v-if="recordStore.currentRecord.first_token_latency">
                             {{ recordStore.currentRecord.first_token_latency }}ms
@@ -96,7 +102,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { DownloadOutlined } from '@ant-design/icons-vue';
+import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { useRecordStore } from '@/stores/record';
 import { formatDate } from '@/utils/format';
 import JsonViewer from '@/components/common/JsonViewer.vue';
@@ -223,5 +229,23 @@ function downloadJson(data: string | null, type: 'request' | 'response') {
 .error-card :deep(.ant-card-head) {
     border-color: #ff4d4f;
     color: #ff4d4f;
+}
+
+.token-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.token-icon {
+    font-size: 14px;
+}
+
+.token-icon.input {
+    color: #1890ff;
+}
+
+.token-icon.output {
+    color: #52c41a;
 }
 </style>
