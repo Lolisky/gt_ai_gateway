@@ -54,12 +54,11 @@ COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
 # 复制构建产物、依赖和源代码
-COPY --from=builder \
-    /app/node_modules ./node_modules \
-    /app/src ./src \
-    /app/frontend/dist ./frontend/dist \
-    /app/script ./script \
-    /app/resource ./resource
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/frontend/dist ./frontend/dist
+COPY --from=builder /app/script ./script
+COPY --from=builder /app/resource ./resource
 
 # 暴露端口
 EXPOSE 8787
