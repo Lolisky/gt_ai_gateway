@@ -206,7 +206,7 @@ function downloadJson(data: string | null, type: 'request' | 'response') {
 
 <style scoped>
 .record-detail {
-    background: #fff;
+    background: var(--bg-page);
     min-height: 100%;
 }
 
@@ -242,7 +242,7 @@ function downloadJson(data: string | null, type: 'request' | 'response') {
 }
 
 .token-icon.input {
-    color: #1890ff;
+    color: var(--accent-primary);
 }
 
 .token-icon.output {

@@ -16,7 +16,15 @@
                     <TokenDisplay :token="user.token" />
                 </a-descriptions-item>
                 <a-descriptions-item label="类型">
-                    <a-tag :color="user.type === 'admin' ? 'red' : 'blue'">
+                    <a-tag
+                        :style="user.type === 'admin'
+                            ? undefined
+                            : {
+                                color: 'var(--accent-primary)',
+                                backgroundColor: 'var(--accent-primary-soft)',
+                                borderColor: 'var(--accent-primary-border)',
+                            }"
+                    >
                         {{ user.type === 'admin' ? '管理员' : '普通用户' }}
                     </a-tag>
                 </a-descriptions-item>

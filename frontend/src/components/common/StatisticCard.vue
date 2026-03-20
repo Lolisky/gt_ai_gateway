@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<Props>(), {
     icon: undefined,
     description: '',
     loading: false,
-    color: '#1890ff',
+    color: 'var(--accent-primary)',
 });
 
 const displayValue = computed(() => {
@@ -86,7 +86,7 @@ const showSuffix = computed(() => {
 
 .statistic-title {
     font-size: 14px;
-    color: #8c8c8c;
+    color: var(--text-secondary);
     margin-bottom: 4px;
 }
 
@@ -104,7 +104,7 @@ const showSuffix = computed(() => {
 
 .statistic-description {
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--text-secondary);
     margin-top: 8px;
 }
 </style>

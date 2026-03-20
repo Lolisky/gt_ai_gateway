@@ -45,7 +45,15 @@
                     </span>
                 </template>
                 <template v-if="column.key === 'type'">
-                    <a-tag :color="record.type === 'recharge' ? 'green' : 'blue'">
+                    <a-tag
+                        :style="record.type === 'recharge'
+                            ? undefined
+                            : {
+                                color: 'var(--accent-primary)',
+                                backgroundColor: 'var(--accent-primary-soft)',
+                                borderColor: 'var(--accent-primary-border)',
+                            }"
+                    >
                         {{ record.type === 'recharge' ? '充值' : '调整' }}
                     </a-tag>
                 </template>

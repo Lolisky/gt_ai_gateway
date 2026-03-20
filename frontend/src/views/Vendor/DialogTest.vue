@@ -28,7 +28,7 @@
                             option-label-prop="value"
                         >
                             <template #option="{ value, isCustom }">
-                                <span v-if="isCustom" style="color: #1890ff">使用自定义模型: </span>
+                                <span v-if="isCustom" style="color: var(--accent-primary)">使用自定义模型: </span>
                                 {{ value }}
                             </template>
                         </a-select>

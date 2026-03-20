@@ -46,7 +46,7 @@
         >
             <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'type'">
-                    <a-tag :color="getTypeColor(record.type)">
+                    <a-tag :color="getTypeColor(record.type)" :style="getTypeTagStyle(record.type)">
                         {{ getTypeLabel(record.type) }}
                     </a-tag>
                 </template>
@@ -204,19 +204,30 @@ function getTypeColor(type: VendorType): string {
         aliyun: 'orange',
         aliyun_coding: 'orange',
         volcengine_coding: 'purple',
-        deepseek: 'blue',
+        deepseek: '',
         openai: 'green',
         anthropic: 'orange',
-        google: 'blue',
+        google: '',
         other: 'default',
     };
     return colors[type] || 'default';
+}
+
+function getTypeTagStyle(type: VendorType) {
+    if (type === 'deepseek' || type === 'google') {
+        return {
+            color: 'var(--accent-primary)',
+            backgroundColor: 'var(--accent-primary-soft)',
+            borderColor: 'var(--accent-primary-border)',
+        };
+    }
+    return undefined;
 }
 </script>
 
 <style scoped>
 .vendor-list {
-    background: #fff;
+    background: var(--bg-page);
     padding: 24px;
 }
 

@@ -177,7 +177,7 @@ function getStatusText(status: string | null): string {
 }
 
 .token-icon.input {
-    color: #1890ff;
+    color: var(--accent-primary);
 }
 
 .token-icon.output {

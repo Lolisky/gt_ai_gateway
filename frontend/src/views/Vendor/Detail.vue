@@ -8,7 +8,7 @@
             <a-descriptions :column="1" bordered>
                 <a-descriptions-item label="ID">{{ vendor.id }}</a-descriptions-item>
                 <a-descriptions-item label="类型">
-                    <a-tag :color="getTypeColor(vendor.type)">
+                    <a-tag :color="getTypeColor(vendor.type)" :style="getTypeTagStyle(vendor.type)">
                         {{ getTypeLabel(vendor.type) }}
                     </a-tag>
                 </a-descriptions-item>
@@ -83,13 +83,24 @@ function getTypeColor(type: VendorType): string {
         aliyun: 'orange',
         aliyun_coding: 'orange',
         volcengine_coding: 'purple',
-        deepseek: 'blue',
+        deepseek: '',
         openai: 'green',
         anthropic: 'orange',
-        google: 'blue',
+        google: '',
         other: 'default',
     };
     return colors[type] || 'default';
+}
+
+function getTypeTagStyle(type: VendorType) {
+    if (type === 'deepseek' || type === 'google') {
+        return {
+            color: 'var(--accent-primary)',
+            backgroundColor: 'var(--accent-primary-soft)',
+            borderColor: 'var(--accent-primary-border)',
+        };
+    }
+    return undefined;
 }
 
 function handleBack() {

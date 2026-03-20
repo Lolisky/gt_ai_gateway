@@ -39,7 +39,7 @@
                     :value="statsStore.stats?.today_requests || 0"
                     :loading="statsStore.loading"
                     :icon="BarChartOutlined"
-                    color="#1890ff"
+                    color="var(--accent-primary)"
                 />
             </a-col>
             <a-col :span="6">
@@ -61,7 +61,7 @@
                     :value="statsStore.stats?.active_users || 0"
                     :loading="statsStore.loading"
                     :icon="UserOutlined"
-                    color="#722ed1"
+                    color="var(--accent-primary)"
                 />
             </a-col>
             <a-col :span="6">
@@ -70,7 +70,7 @@
                     :value="statsStore.stats?.active_models || 0"
                     :loading="statsStore.loading"
                     :icon="RobotOutlined"
-                    color="#eb2f96"
+                    color="var(--accent-primary)"
                 />
             </a-col>
         </a-row>
@@ -341,7 +341,7 @@ function formatTime(date: Date): string {
 
 <style scoped>
 .dashboard {
-    background: #fff;
+    background: var(--bg-page);
     padding: 24px;
 }
 
@@ -356,11 +356,12 @@ function formatTime(date: Date): string {
     font-size: 18px;
     font-weight: 500;
     margin: 0;
+    color: var(--text-primary);
 }
 
 .last-updated {
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--text-secondary);
 }
 
 .recent-records-card {
@@ -381,7 +382,7 @@ function formatTime(date: Date): string {
 .empty-records {
     text-align: center;
     padding: 40px;
-    color: #8c8c8c;
+    color: var(--text-secondary);
 }
 
 .system-info-grid {
@@ -395,19 +396,19 @@ function formatTime(date: Date): string {
     align-items: center;
     min-height: 64px;
     padding: 0 20px;
-    border: 1px solid #f0f0f0;
+    border: 1px solid var(--border-info-item);
     border-radius: 12px;
-    background: #fafafa;
+    background: var(--bg-info-item);
 }
 
 .system-info-label {
     flex: 0 0 96px;
-    color: #8c8c8c;
+    color: var(--text-secondary);
     font-size: 13px;
 }
 
 .system-info-value {
-    color: #262626;
+    color: var(--text-primary);
     font-weight: 500;
 }
 

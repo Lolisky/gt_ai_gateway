@@ -43,11 +43,11 @@ defineProps<Props>();
 .status-value {
     font-size: 32px;
     font-weight: bold;
-    color: #1890ff;
+    color: var(--accent-primary);
 }
 
 .status-description {
     margin-top: 8px;
-    color: #666;
+    color: var(--text-secondary);
 }
 </style>

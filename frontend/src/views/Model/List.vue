@@ -205,7 +205,7 @@ function getVendorName(vendorId: number): string {
 
 <style scoped>
 .model-list {
-    background: #fff;
+    background: var(--bg-page);
     padding: 24px;
 }
 
@@ -234,7 +234,7 @@ function getVendorName(vendorId: number): string {
 }
 
 .price-icon.input {
-    color: #1890ff;
+    color: var(--accent-primary);
 }
 
 .price-icon.output {

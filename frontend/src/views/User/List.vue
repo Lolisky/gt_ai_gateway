@@ -43,7 +43,15 @@
                     <TokenDisplay :token="record.token" />
                 </template>
                 <template v-if="column.key === 'type'">
-                    <a-tag :color="record.type === 'admin' ? 'red' : 'blue'">
+                    <a-tag
+                        :style="record.type === 'admin'
+                            ? undefined
+                            : {
+                                color: 'var(--accent-primary)',
+                                backgroundColor: 'var(--accent-primary-soft)',
+                                borderColor: 'var(--accent-primary-border)',
+                            }"
+                    >
                         {{ record.type === 'admin' ? '管理员' : '普通用户' }}
                     </a-tag>
                 </template>
@@ -52,7 +60,7 @@
                         :value="record.balance"
                         :precision="2"
                         prefix="¥"
-                        :value-style="{ color: record.balance > 0 ? '#1677ff' : record.balance < 0 ? '#ff4d4f' : '#8c8c8c', fontSize: '14px' }"
+                        :value-style="{ color: record.balance > 0 ? 'var(--accent-primary)' : record.balance < 0 ? '#ff4d4f' : 'var(--text-secondary)', fontSize: '14px' }"
                     />
                 </template>
                 <template v-if="column.key === 'action'">
@@ -158,7 +166,7 @@ function handleEditSuccess() {
 
 <style scoped>
 .user-list {
-    background: #fff;
+    background: var(--bg-page);
     padding: 24px;
 }
 

@@ -170,12 +170,12 @@ async function copyText(text: string, label: string) {
     margin: 0 0 4px;
     font-size: 20px;
     font-weight: 600;
-    color: #243247;
+    color: var(--text-primary);
 }
 
 .page-desc {
     margin: 0;
-    color: #8c8c8c;
+    color: var(--text-secondary);
     font-size: 14px;
 }
 
@@ -202,7 +202,7 @@ async function copyText(text: string, label: string) {
 
 .protocol-badge.openai {
     background: #e6f4ff;
-    color: #1677ff;
+    color: var(--accent-primary);
 }
 
 .protocol-badge.anthropic {
@@ -235,7 +235,7 @@ async function copyText(text: string, label: string) {
 
 .code-block {
     background: #f6f8fa;
-    border: 1px solid #e8edf5;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 14px 16px;
     font-size: 12px;
