@@ -18,8 +18,17 @@ env:
 
 jobs:
     docker-build:
-        name: Build and Push Docker Image
-        runs-on: ubuntu-latest
+        name: Build Docker Image (${{ matrix.platform }})
+        runs-on: ${{ matrix.runs-on }}
+        timeout-minutes: 10
+
+        strategy:
+            matrix:
+                include:
+                    - platform: linux/amd64
+                      runs-on: ubuntu-latest
+                    - platform: linux/arm64
+                      runs-on: ubuntu-24.04-arm
 
         permissions:
             contents: read
@@ -60,4 +69,5 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
-                  platforms: linux/amd64,linux/arm64
+                  platforms: ${{ matrix.platform }}
+                  provenance: false
