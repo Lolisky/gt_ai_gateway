@@ -100,7 +100,10 @@ function handleTableChange(pag: TablePaginationConfig) {
 }
 
 function handleView(record: Record) {
-    router.push(`/record/${record.id}`);
+    router.push({
+        name: 'RecordDetail',
+        params: { id: String(record.id) },
+    });
 }
 
 function normalizeTimestamp(value: string | number | null): number | null {

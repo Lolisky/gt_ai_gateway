@@ -3,7 +3,24 @@
         <a-page-header
             title="请求记录详情"
             @back="handleBack"
-        />
+        >
+            <template #extra>
+                <a-space>
+                    <a-button
+                        :disabled="currentRecordId <= 1"
+                        @click="navigateToRecord(currentRecordId - 1)"
+                    >
+                        上一个请求
+                    </a-button>
+                    <a-button
+                        :disabled="currentRecordId <= 0"
+                        @click="navigateToRecord(currentRecordId + 1)"
+                    >
+                        下一个请求
+                    </a-button>
+                </a-space>
+            </template>
+        </a-page-header>
 
         <a-spin :spinning="recordStore.loading">
             <div v-if="recordStore.currentRecord" class="detail-content">
@@ -94,13 +111,13 @@
                 </a-card>
             </div>
 
-            <a-empty v-else description="记录不存在" />
+            <a-empty v-else description="请求未找到" />
         </a-spin>
     </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { useRecordStore } from '@/stores/record';
@@ -112,20 +129,43 @@ const router = useRouter();
 const route = useRoute();
 const recordStore = useRecordStore();
 
-onMounted(() => {
-    const id = parseInt(route.params.id as string, 10);
-    if (!isNaN(id)) {
-        recordStore.fetchRecordDetail(id);
-    }
+const currentRecordId = computed<number>(() => {
+    const id = Number.parseInt(route.params.id as string, 10);
+    return Number.isNaN(id) ? 0 : id;
 });
 
-onUnmounted(() => {
-    recordStore.clearCurrentRecord();
-});
+watch(
+    () => route.params.id,
+    (idValue) => {
+        const id = Number.parseInt(idValue as string, 10);
+        if (Number.isNaN(id)) {
+            recordStore.clearCurrentRecord();
+            return;
+        }
+
+        void recordStore.fetchRecordDetail(id);
+    },
+    { immediate: true }
+);
+
+function navigateToRecord(targetId: number) {
+    if (targetId <= 0) {
+        return;
+    }
+
+    void router.push({
+        name: 'RecordDetail',
+        params: { id: String(targetId) },
+    });
+}
 
 function handleBack() {
     router.back();
 }
+
+onUnmounted(() => {
+    recordStore.clearCurrentRecord();
+});
 
 function getStatusColor(status: string | null): string {
     switch (status) {

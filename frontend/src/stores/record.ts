@@ -108,6 +108,7 @@ export const useRecordStore = defineStore('record', () => {
 
     async function fetchRecordDetail(id: number): Promise<void> {
         loading.value = true;
+        currentRecord.value = null;
         try {
             const record = await getRecord(id);
 
