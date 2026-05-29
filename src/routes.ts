@@ -1,6 +1,5 @@
 import { Hono, MiddlewareHandler, HTTPException } from "hono";
 import { logger } from "hono/logger";
-import { cors } from "hono/cors";
 import { join } from "path";
 import { readFileSync } from "fs";
 import gatewayController from "./controller/gatewayController";
@@ -13,6 +12,7 @@ import statsController from "./controller/statsController";
 import balanceController from "./controller/balanceController";
 import ormService from "./service/ormService";
 import authMiddleware from "./middleware/authMiddleware";
+import corsMiddleware from "./middleware/corsMiddleware";
 import customError from "./util/customError";
 
 interface Env {
@@ -33,22 +33,7 @@ const dbMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // CORS 中间件（放行 Tauri WebView 及本地开发请求）
-app.use("*", cors({
-    origin: (origin) => {
-        if (!origin) return "*";
-        if (
-            origin.startsWith("tauri://") ||
-            origin.startsWith("http://localhost") ||
-            origin.startsWith("http://127.0.0.1")
-        ) {
-            return origin;
-        }
-        return null;
-    },
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-}));
+app.use("*", corsMiddleware.allowCors);
 
 // 注册日志中间件
 app.use("*", logger());
