@@ -1,7 +1,7 @@
 import { Context } from "hono";
+import { sutando } from "sutando";
 import { SgVendor } from "../model/sgVendor";
 import { SgModel } from "../model/sgModel";
-import { SgVendorModel } from "../model/sgVendorModel";
 import vendorService from "../service/vendorService";
 import vendorDefaultUrls from "../service/vendorDefaultUrls";
 import customError from "../util/customError";
@@ -42,15 +42,20 @@ async function listVendors(c: Context) {
     const total = Number(await dbQuery.clone().count() || 0);
     const vendors = await dbQuery.limit(pageSize).offset(offset).get();
 
-    // Batch-fetch model counts for this page (single query, group in memory)
+    // Single GROUP BY COUNT query for this page's vendor IDs
     const vendorIds = vendors.map(v => v.id);
-    const vendorModels = vendorIds.length > 0
-        ? await SgVendorModel.query().whereIn("vendor_id", vendorIds).get()
-        : [];
     const countMap = new Map<number, number>();
-    vendorModels.forEach(vm => {
-        countMap.set(vm.vendor_id, (countMap.get(vm.vendor_id) ?? 0) + 1);
-    });
+    if (vendorIds.length > 0) {
+        const rows: { vendor_id: number; cnt: number }[] = await sutando
+            .table("vendor_model")
+            .select("vendor_id")
+            .count("* as cnt")
+            .whereIn("vendor_id", vendorIds)
+            .groupBy("vendor_id");
+        rows.forEach(row => {
+            countMap.set(Number(row.vendor_id), Number(row.cnt));
+        });
+    }
 
     const formattedVendors = vendors.map(v => formatVendor(v, countMap.get(v.id) ?? 0));
     return c.json(createListResponse(formattedVendors, total));
