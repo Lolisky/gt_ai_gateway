@@ -23,6 +23,7 @@ export class OpenAIToAnthropicConverter extends BaseConverter {
     private hasYieldedThinking = false;
     private currentToolCallId = "";
     private isFirstChunk = true;
+    private pendingStopReason: string | null = null;
 
     public convertRequest(clientReq: OpenAIRequest): AnthropicRequest {
         let systemPrompt: string | undefined;
@@ -185,6 +186,28 @@ export class OpenAIToAnthropicConverter extends BaseConverter {
         };
     }
 
+    protected override handleDoneEvent(): ProtocolStreamEvent[] {
+        if (this.pendingStopReason !== null) {
+            const events: AnthropicSSEEvent[] = [
+                {
+                    event: "message_delta",
+                    data: JSON.stringify({
+                        type: "message_delta",
+                        delta: { stop_reason: this.pendingStopReason, stop_sequence: null },
+                        usage: { input_tokens: 0, output_tokens: 0 },
+                    }),
+                },
+                {
+                    event: "message_stop",
+                    data: JSON.stringify({ type: "message_stop" }),
+                },
+            ];
+            this.pendingStopReason = null;
+            return events;
+        }
+        return [];
+    }
+
     protected doConvertStreamEvent(data: Record<string, unknown>, rawDataStr: string): ProtocolStreamEvent[] {
 
         const events: AnthropicSSEEvent[] = [];
@@ -335,23 +358,48 @@ export class OpenAIToAnthropicConverter extends BaseConverter {
 
                 const stopReason = OPENAI_TO_ANTHROPIC_STOP_REASON[chunk.choices[0].finish_reason] || "end_turn";
 
-                events.push({
-                    event: "message_delta",
-                    data: JSON.stringify({
-                        type: "message_delta",
-                        delta: { stop_reason: stopReason, stop_sequence: null },
-                        usage: {
-                            input_tokens: chunk.usage?.prompt_tokens || 0,
-                            output_tokens: chunk.usage?.completion_tokens || 0,
-                        },
-                    }),
-                });
-
-                events.push({
-                    event: "message_stop",
-                    data: JSON.stringify({ type: "message_stop" }),
-                });
+                if (chunk.usage) {
+                    // usage 在同一帧里，直接发出
+                    events.push({
+                        event: "message_delta",
+                        data: JSON.stringify({
+                            type: "message_delta",
+                            delta: { stop_reason: stopReason, stop_sequence: null },
+                            usage: {
+                                input_tokens: chunk.usage.prompt_tokens || 0,
+                                output_tokens: chunk.usage.completion_tokens || 0,
+                            },
+                        }),
+                    });
+                    events.push({
+                        event: "message_stop",
+                        data: JSON.stringify({ type: "message_stop" }),
+                    });
+                } else {
+                    // usage 在后续独立帧（stream_options），先缓存 stop reason
+                    this.pendingStopReason = stopReason;
+                }
             }
+        }
+
+        // 处理 OpenAI stream_options 的独立 usage 帧（choices 为空，只含 usage）
+        if ((!chunk.choices || chunk.choices.length === 0) && chunk.usage && this.pendingStopReason !== null) {
+            events.push({
+                event: "message_delta",
+                data: JSON.stringify({
+                    type: "message_delta",
+                    delta: { stop_reason: this.pendingStopReason, stop_sequence: null },
+                    usage: {
+                        input_tokens: chunk.usage.prompt_tokens || 0,
+                        output_tokens: chunk.usage.completion_tokens || 0,
+                    },
+                }),
+            });
+            events.push({
+                event: "message_stop",
+                data: JSON.stringify({ type: "message_stop" }),
+            });
+            this.pendingStopReason = null;
         }
 
         return events;

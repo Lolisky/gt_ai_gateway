@@ -614,8 +614,8 @@ describe("OpenAIToAnthropicConverter - convertStreamEvent", () => {
             choices: [{ index: 0, delta: { content: "Hello" }, finish_reason: null }],
         }));
 
-        // Finish
-        const events = converter.convertStreamEvent(JSON.stringify({
+        // Finish (no usage in this chunk — usage comes in a separate chunk)
+        const finishEvents = converter.convertStreamEvent(JSON.stringify({
             id: "chatcmpl-123",
             object: "chat.completion.chunk",
             created: 1677652288,
@@ -623,10 +623,24 @@ describe("OpenAIToAnthropicConverter - convertStreamEvent", () => {
             choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
         }));
 
-        expect(events.map((event) => event.event)).toEqual(["content_block_stop", "message_delta", "message_stop"]);
-        expect(parseStreamEventData(events, 0).type).toBe("content_block_stop");
-        expect(parseStreamEventData(events, 1).type).toBe("message_delta");
-        expect(parseStreamEventData(events, 2).type).toBe("message_stop");
+        // message_delta / message_stop are deferred until the usage chunk arrives
+        expect(finishEvents.map((event) => event.event)).toEqual(["content_block_stop"]);
+
+        // Usage chunk (stream_options: { include_usage: true })
+        const usageEvents = converter.convertStreamEvent(JSON.stringify({
+            id: "chatcmpl-123",
+            object: "chat.completion.chunk",
+            created: 1677652288,
+            model: "gpt-4",
+            choices: [],
+            usage: { prompt_tokens: 15, completion_tokens: 5, total_tokens: 20 },
+        }));
+
+        expect(usageEvents.map((event) => event.event)).toEqual(["message_delta", "message_stop"]);
+        expect(parseStreamEventData(usageEvents, 0).type).toBe("message_delta");
+        expect(parseStreamEventData(usageEvents, 0).usage.input_tokens).toBe(15);
+        expect(parseStreamEventData(usageEvents, 0).usage.output_tokens).toBe(5);
+        expect(parseStreamEventData(usageEvents, 1).type).toBe("message_stop");
     });
 
     it("should include usage in message_delta on finish", () => {
