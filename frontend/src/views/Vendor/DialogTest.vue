@@ -11,7 +11,7 @@
                     <!-- Model mode: read-only info block -->
                     <template v-if="modelInfo">
                         <div class="model-info">
-                            <div class="info-row">
+                            <div v-if="!modelInfo.hideModelName" class="info-row">
                                 <span class="info-label">模型名称</span>
                                 <span class="info-value">{{ modelInfo.modelName }}</span>
                             </div>
@@ -26,7 +26,7 @@
                         </div>
                     </template>
 
-                    <a-form-item :label="modelInfo ? '客户端请求协议' : '向服务端请求协议'">
+                    <a-form-item :label="modelInfo?.hideModelName ? '服务端请求协议' : (modelInfo ? '客户端请求协议' : '向服务端请求协议')">
                         <a-radio-group v-model:value="format">
                             <a-radio-button value="openai">OpenAI</a-radio-button>
                             <a-radio-button value="anthropic">Anthropic</a-radio-button>
@@ -138,6 +138,7 @@ interface ModelInfo {
     vendorModelName: string | null;
     allowedFormats?: string[] | null;
     showAutoConvert?: boolean;
+    hideModelName?: boolean;
 }
 
 const { presetUrls, load: loadPresets } = useVendorPresets();
