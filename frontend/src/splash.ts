@@ -9,18 +9,21 @@ async function initSplash() {
 
     let hasError = false;
 
-    // Listen for backend error events from Rust
-    listen('backend-error', (event) => {
+    const showBackendError = (code: unknown) => {
         hasError = true;
-        const code = event.payload;
         loadingState.style.display = 'none';
         errorState.style.display = 'flex';
-        
+
         if (code === 98) {
             errorText.innerHTML = `后端 <b>8787</b> 端口被占用。 请清理占用端口的进程，或者修改配置文件中的服务端口。`;
         } else {
             errorText.innerHTML = `后端异常退出 (代码：${code})`;
         }
+    };
+
+    // Listen for backend error events from Rust
+    listen('backend-error', (event) => {
+        showBackendError(event.payload);
     });
 
     btnExit.addEventListener('click', async () => {
@@ -30,38 +33,90 @@ async function initSplash() {
     try {
         const url = await invoke<string>('get_backend_url');
         
-        // Wait for backend to be ready
-        const start = Date.now();
-        const timeout = 15000;
-        let isReady = false;
+        // Wait for backend to be ready. Rust events are fast, HTTP polling is the
+        // fallback for missed events or stdout detection failures.
+        const isReady = await new Promise<boolean>((resolve) => {
+            if (hasError) return resolve(false);
 
-        while (Date.now() - start < timeout && !hasError) {
-            // First, actively check if backend already crashed
-            try {
-                await invoke('check_backend_status');
-            } catch (code) {
-                hasError = true;
-                loadingState.style.display = 'none';
-                errorState.style.display = 'flex';
-                if (code === 98) {
-                    errorText.innerHTML = `后端 <b>8787</b> 端口被占用。 请清理占用端口的进程，或者修改配置文件中的服务端口。`;
-                } else {
-                    errorText.innerHTML = `后端异常退出 (代码：${code})`;
-                }
-                break;
-            }
+            let isResolved = false;
+            let pollTimer: ReturnType<typeof setTimeout> | undefined;
+            const unlisteners: Array<() => void> = [];
 
-            try {
-                const resp = await fetch(`${url}/welcome`);
-                if (resp.ok) {
-                    isReady = true;
-                    break;
+            const timeoutId = setTimeout(() => finish(false), 15000);
+
+            const finish = (result: boolean) => {
+                if (isResolved) return;
+                isResolved = true;
+                clearTimeout(timeoutId);
+                if (pollTimer) {
+                    clearTimeout(pollTimer);
                 }
-            } catch (e) {
-                // Connection refused, retry
-            }
-            await new Promise(r => setTimeout(r, 300));
-        }
+                unlisteners.forEach((unlisten) => unlisten());
+                resolve(result);
+            };
+
+            // 1. 先注册监听器，防止在检查状态期间事件漏掉
+            listen('backend-ready', () => finish(true))
+                .then((unlisten) => {
+                    if (isResolved) {
+                        unlisten();
+                    } else {
+                        unlisteners.push(unlisten);
+                    }
+                })
+                .catch(console.error);
+            listen('backend-error', () => finish(false))
+                .then((unlisten) => {
+                    if (isResolved) {
+                        unlisten();
+                    } else {
+                        unlisteners.push(unlisten);
+                    }
+                })
+                .catch(console.error);
+
+            // 2. 然后主动检测是否已经崩溃或就绪
+            const pollBackend = async () => {
+                if (isResolved) return;
+
+                try {
+                    await invoke('check_backend_status');
+                } catch (code) {
+                    showBackendError(code);
+                    finish(false);
+                    return;
+                }
+
+                try {
+                    const ready = await invoke<boolean>('is_backend_ready');
+                    if (ready) {
+                        finish(true);
+                        return;
+                    }
+                } catch (code) {
+                    showBackendError(code);
+                    finish(false);
+                    return;
+                }
+
+                try {
+                    const resp = await fetch(`${url}/welcome`, { cache: 'no-store' });
+                    if (resp.ok) {
+                        finish(true);
+                        return;
+                    }
+                } catch (e) {
+                    // Backend is not reachable yet, keep polling.
+                }
+
+                pollTimer = setTimeout(pollBackend, 300);
+            };
+
+            pollBackend().catch((e) => {
+                console.error(e);
+                finish(false);
+            });
+        });
 
         if (hasError) {
             return; // Stop processing, error UI is shown

@@ -3,9 +3,11 @@ use std::os::unix::io::{FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 static BACKEND_EXIT_CODE: AtomicI32 = AtomicI32::new(0);
+static BACKEND_HAS_EXITED: AtomicBool = AtomicBool::new(false);
+static BACKEND_IS_READY: AtomicBool = AtomicBool::new(false);
 
 use tauri::{
     image::Image,
@@ -57,11 +59,19 @@ fn open_main_window(app: tauri::AppHandle) {
 #[tauri::command]
 fn check_backend_status() -> Result<(), i32> {
     let code = BACKEND_EXIT_CODE.load(Ordering::SeqCst);
-    if code != 0 {
+    let has_exited = BACKEND_HAS_EXITED.load(Ordering::SeqCst);
+    if has_exited && !BACKEND_IS_READY.load(Ordering::SeqCst) {
+        Err(code)
+    } else if code != 0 {
         Err(code)
     } else {
         Ok(())
     }
+}
+
+#[tauri::command]
+fn is_backend_ready() -> bool {
+    BACKEND_IS_READY.load(Ordering::SeqCst)
 }
 
 struct AppConfig {
@@ -183,7 +193,7 @@ fn show_main_window(app: &tauri::AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![get_backend_url, get_auth_token, exit_app, open_main_window, check_backend_status])
+        .invoke_handler(tauri::generate_handler![get_backend_url, get_auth_token, exit_app, open_main_window, check_backend_status, is_backend_ready])
         .setup(|app| {
             let app_data_dir = app
                 .path()
@@ -218,8 +228,19 @@ pub fn run() {
             let (mut cmd, migration_dir) = {
                 // Dev 模式下直接运行源码，实现热加载，同时避免被 pkg 构建覆盖
                 let project_root = exe_dir.join("../../../..");
-                let mut c = std::process::Command::new("npx");
-                c.arg("tsx").arg("src/local.ts");
+                let is_apple_silicon = std::process::Command::new("uname")
+                    .arg("-m")
+                    .output()
+                    .map(|output| String::from_utf8_lossy(&output.stdout).trim() == "arm64")
+                    .unwrap_or(false);
+                let mut c = if cfg!(target_os = "macos") && is_apple_silicon {
+                    let mut command = std::process::Command::new("/usr/bin/arch");
+                    command.arg("-arm64").arg("node");
+                    command
+                } else {
+                    std::process::Command::new("node")
+                };
+                c.arg("--import").arg("tsx").arg("src/local.ts");
                 c.current_dir(&project_root);
                 (c, project_root.join("resource/migrate").to_string_lossy().into_owned())
             };
@@ -255,13 +276,12 @@ pub fn run() {
                     // 2. 将 PTY slave 设为该 session 的控制终端
                     libc::ioctl(slave_raw, libc::TIOCSCTTY as u64, 0);
 
-                    // 3. stdin 保持 slave（维持控制终端关系），stdout/stderr 指向 /dev/null
-                    //    这样 backend 写日志不会填满 PTY 缓冲区，也不需要 drain 线程
+                    // 3. stdin 保持 slave（维持控制终端关系），stderr 指向 /dev/null
+                    //    stdout 不再指向 /dev/null，而是通过 pipe 传回 Rust，以供启动状态检测
                     libc::dup2(slave_raw, 0);
                     let devnull = libc::open(b"/dev/null\0".as_ptr() as *const _, libc::O_RDWR);
                     if devnull >= 0 {
-                        libc::dup2(devnull, 1);
-                        libc::dup2(devnull, 2);
+                        libc::dup2(devnull, 2); // 只重定向 stderr
                         libc::close(devnull);
                     }
 
@@ -278,15 +298,48 @@ pub fn run() {
                 });
             }
 
+            // 管道接收 stdout
+            cmd.stdout(std::process::Stdio::piped());
+
             let mut child = cmd.spawn().expect("failed to spawn backend sidecar");
+            let stdout = child.stdout.take();
 
             let app_handle_clone = app.handle().clone();
             std::thread::spawn(move || {
+                use tauri::Emitter;
+                use std::io::{BufRead, BufReader};
+
+                // 持续读取 stdout，直到进程退出管道关闭（这同时充当了 drain 的作用，防止子进程被阻塞）
+                if let Some(out) = stdout {
+                    let reader = BufReader::new(out);
+                    for line in reader.lines() {
+                        if let Ok(line_str) = line {
+                            println!("RUST RECEIVED: {}", line_str);
+                            // 检测到成功启动的关键日志
+                            if line_str.contains("Server listening on") {
+                                BACKEND_IS_READY.store(true, Ordering::SeqCst);
+                                let _ = app_handle_clone.emit("backend-ready", ());
+                            }
+                        } else if let Err(e) = line {
+                            println!("RUST STDOUT READ ERROR: {:?}", e);
+                        }
+                    }
+                }
+
+                // stdout 结束后（意味着子进程已经退出），收集退出码
                 if let Ok(status) = child.wait() {
                     if let Some(code) = status.code() {
                         BACKEND_EXIT_CODE.store(code, Ordering::SeqCst);
-                        use tauri::Emitter;
-                        let _ = app_handle_clone.emit("backend-error", code);
+                        BACKEND_HAS_EXITED.store(true, Ordering::SeqCst);
+                        if !BACKEND_IS_READY.load(Ordering::SeqCst) || code != 0 {
+                            let _ = app_handle_clone.emit("backend-error", code);
+                        }
+                    } else {
+                        BACKEND_EXIT_CODE.store(1, Ordering::SeqCst);
+                        BACKEND_HAS_EXITED.store(true, Ordering::SeqCst);
+                        if !BACKEND_IS_READY.load(Ordering::SeqCst) {
+                            let _ = app_handle_clone.emit("backend-error", 1);
+                        }
                     }
                 }
             });

@@ -13,6 +13,19 @@ config({ path: join(process.cwd(), ".dev.vars"), override: false });
 
 const DB_PATH = process.env.DB_PATH || join(process.cwd(), "local.db");
 
+function formatConsoleArg(arg: unknown): string {
+    if (arg instanceof Error) {
+        return arg.stack || arg.message;
+    }
+
+    if (typeof arg === "object") {
+        return JSON.stringify(arg, null, 2);
+    }
+
+    return String(arg);
+}
+
+
 async function startServer() {
     // 保存原始 console 方法
     const originalConsole = {
@@ -29,45 +42,25 @@ async function startServer() {
     // 重写 console 方法以记录日志
     console.log = (...args: unknown[]) => {
         originalConsole.log(...args);
-        const message = args.map((arg) => {
-            if (typeof arg === "object") {
-                return JSON.stringify(arg, null, 2);
-            }
-            return String(arg);
-        }).join(" ");
+        const message = args.map(formatConsoleArg).join(" ");
         logger["write"]("info", message);
     };
 
     console.error = (...args: unknown[]) => {
         originalConsole.error(...args);
-        const message = args.map((arg) => {
-            if (typeof arg === "object") {
-                return JSON.stringify(arg, null, 2);
-            }
-            return String(arg);
-        }).join(" ");
+        const message = args.map(formatConsoleArg).join(" ");
         logger["write"]("error", message);
     };
 
     console.warn = (...args: unknown[]) => {
         originalConsole.warn(...args);
-        const message = args.map((arg) => {
-            if (typeof arg === "object") {
-                return JSON.stringify(arg, null, 2);
-            }
-            return String(arg);
-        }).join(" ");
+        const message = args.map(formatConsoleArg).join(" ");
         logger["write"]("warn", message);
     };
 
     console.debug = (...args: unknown[]) => {
         originalConsole.debug(...args);
-        const message = args.map((arg) => {
-            if (typeof arg === "object") {
-                return JSON.stringify(arg, null, 2);
-            }
-            return String(arg);
-        }).join(" ");
+        const message = args.map(formatConsoleArg).join(" ");
         logger["write"]("debug", message);
     };
 
@@ -148,10 +141,15 @@ async function startServer() {
         }
     });
 
-    console.log(`Server listening on http://${hostname}:${port}`);
-    console.log(`ROOT_TOKEN: ${bindings.ROOT_TOKEN}`);
+    server.on('listening', () => {
+        console.log(`Server listening on http://${hostname}:${port}`);
+        console.log(`ROOT_TOKEN: ${bindings.ROOT_TOKEN}`);
+        // Bypass Node.js stdout block-buffering for pipes by using writeSync
+        require('fs').writeSync(1, `Server listening on http://${hostname}:${port}\n`);
+    });
 }
 
 startServer().catch((err) => {
     console.error("Failed to start server:", err);
+    process.exit(1);
 });
