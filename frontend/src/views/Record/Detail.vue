@@ -173,6 +173,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { useRecordStore } from '@/stores/record';
 import { formatDate } from '@/utils/format';
+import JsonDownload from '@/utils/jsonDownload';
 import JsonViewer from '@/components/common/JsonViewer.vue';
 import { message } from 'ant-design-vue/es';
 
@@ -363,39 +364,27 @@ function getErrorMessage(responseData: string | null): string {
 }
 
 
-function downloadJson(data: string | null, type: 'request' | 'response') {
+async function downloadJson(data: string | null, type: 'request' | 'response') {
     if (!data) {
         message.warning('没有数据可下载');
         return;
     }
 
     try {
-        // 格式化 JSON
-        const parsed = JSON.parse(data);
-        const formatted = JSON.stringify(parsed, null, 2);
-
-        // 创建 Blob
-        const blob = new Blob([formatted], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        // 创建下载链接
-        const link = document.createElement('a');
         const recordId = recordStore.currentRecord?.id || 'unknown';
         const timestamp = formatDate(new Date()).replace(/[:\s]/g, '-');
-        link.href = url;
-        link.download = `record-${recordId}-${type}-${timestamp}.json`;
+        const filename = `record-${recordId}-${type}-${timestamp}.json`;
+        const downloaded = await JsonDownload.downloadJson(data, filename);
 
-        // 触发下载
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // 释放 URL
-        URL.revokeObjectURL(url);
-
-        message.success('下载成功');
-    } catch (_error) {
-        message.error('下载失败：数据格式错误');
+        if (downloaded) {
+            message.success('下载成功');
+        }
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            message.error('下载失败：数据格式错误');
+        } else {
+            message.error('下载失败');
+        }
     }
 }
 </script>
