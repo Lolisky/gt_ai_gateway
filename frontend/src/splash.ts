@@ -9,6 +9,27 @@ async function initSplash() {
 
     let hasError = false;
 
+    const formatError = (error: unknown): string => {
+        if (error instanceof Error) {
+            return error.message;
+        }
+        if (typeof error === 'string') {
+            return error;
+        }
+        const serialized = JSON.stringify(error);
+        if (serialized) {
+            return serialized;
+        }
+        return String(error);
+    };
+
+    const showInitializationError = (message: string) => {
+        hasError = true;
+        loadingState.style.display = 'none';
+        errorState.style.display = 'flex';
+        errorText.innerText = `初始化失败：${message}`;
+    };
+
     const showBackendError = (code: unknown) => {
         hasError = true;
         loadingState.style.display = 'none';
@@ -21,69 +42,51 @@ async function initSplash() {
         }
     };
 
-    // Listen for backend error events from Rust
-    listen('backend-error', (event) => {
-        showBackendError(event.payload);
-    });
-
     btnExit.addEventListener('click', async () => {
         await invoke('exit_app');
     });
 
     try {
-        const url = await invoke<string>('get_backend_url');
-        
-        // Wait for backend to be ready. Rust events are fast, HTTP polling is the
-        // fallback for missed events or stdout detection failures.
+        // Wait for the sidecar backend state reported by Rust. Do not probe HTTP
+        // here: another local process may already be serving the configured port.
         const isReady = await new Promise<boolean>((resolve) => {
             if (hasError) return resolve(false);
 
             let isResolved = false;
-            let pollTimer: ReturnType<typeof setTimeout> | undefined;
+            let timeoutId: ReturnType<typeof setTimeout> | undefined;
             const unlisteners: Array<() => void> = [];
-
-            const timeoutId = setTimeout(() => finish(false), 15000);
 
             const finish = (result: boolean) => {
                 if (isResolved) return;
                 isResolved = true;
-                clearTimeout(timeoutId);
-                if (pollTimer) {
-                    clearTimeout(pollTimer);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
                 }
                 unlisteners.forEach((unlisten) => unlisten());
                 resolve(result);
             };
 
-            // 1. 先注册监听器，防止在检查状态期间事件漏掉
-            listen('backend-ready', () => finish(true))
-                .then((unlisten) => {
-                    if (isResolved) {
-                        unlisten();
-                    } else {
-                        unlisteners.push(unlisten);
-                    }
-                })
-                .catch(console.error);
-            listen('backend-error', () => finish(false))
-                .then((unlisten) => {
-                    if (isResolved) {
-                        unlisten();
-                    } else {
-                        unlisteners.push(unlisten);
-                    }
-                })
-                .catch(console.error);
-
-            // 2. 然后主动检测是否已经崩溃或就绪
-            const pollBackend = async () => {
+            const finishWithInitializationError = (message: string) => {
                 if (isResolved) return;
+                showInitializationError(message);
+                finish(false);
+            };
 
+            const finishWithBackendError = (code: unknown) => {
+                if (isResolved) return;
+                showBackendError(code);
+                finish(false);
+            };
+
+            async function checkInitialBackendState() {
                 try {
                     await invoke('check_backend_status');
                 } catch (code) {
-                    showBackendError(code);
-                    finish(false);
+                    if (typeof code === 'number') {
+                        finishWithBackendError(code);
+                    } else {
+                        finishWithInitializationError(`检查后端进程状态失败：${formatError(code)}`);
+                    }
                     return;
                 }
 
@@ -91,31 +94,37 @@ async function initSplash() {
                     const ready = await invoke<boolean>('is_backend_ready');
                     if (ready) {
                         finish(true);
-                        return;
                     }
-                } catch (code) {
-                    showBackendError(code);
-                    finish(false);
-                    return;
+                } catch (error) {
+                    finishWithInitializationError(`读取后端就绪状态失败：${formatError(error)}`);
                 }
+            }
 
-                try {
-                    const resp = await fetch(`${url}/welcome`, { cache: 'no-store' });
-                    if (resp.ok) {
-                        finish(true);
-                        return;
+            timeoutId = setTimeout(() => {
+                finishWithInitializationError('后端启动超时：15 秒内没有收到后端就绪事件。');
+            }, 15000);
+
+            Promise.all([
+                listen('backend-ready', () => finish(true)),
+                listen('backend-error', (event) => {
+                    finishWithBackendError(event.payload);
+                }),
+            ])
+                .then((listeners) => {
+                    if (isResolved) {
+                        listeners.forEach((unlisten) => unlisten());
+                    } else {
+                        unlisteners.push(...listeners);
+                        checkInitialBackendState().catch((e) => {
+                            console.error(e);
+                            finishWithInitializationError(`检查后端初始状态异常：${formatError(e)}`);
+                        });
                     }
-                } catch (e) {
-                    // Backend is not reachable yet, keep polling.
-                }
-
-                pollTimer = setTimeout(pollBackend, 300);
-            };
-
-            pollBackend().catch((e) => {
-                console.error(e);
-                finish(false);
-            });
+                })
+                .catch((e) => {
+                    console.error(e);
+                    finishWithInitializationError(`注册后端启动事件监听失败：${formatError(e)}`);
+                });
         });
 
         if (hasError) {
@@ -123,7 +132,7 @@ async function initSplash() {
         }
 
         if (!isReady) {
-            throw new Error("Backend failed to start within 15 seconds.");
+            throw new Error("Backend failed to start for an unknown reason.");
         }
 
         // 如果配置了环境变量 VITE_SPLASH_DELAY_SEC，则人为增加对应秒数的延迟
@@ -139,7 +148,7 @@ async function initSplash() {
         if (!hasError) {
             loadingState.style.display = 'none';
             errorState.style.display = 'flex';
-            errorText.innerText = `Initialization Error: ${e.message || e}`;
+            errorText.innerText = `初始化失败：${formatError(e)}`;
         }
     }
 }
