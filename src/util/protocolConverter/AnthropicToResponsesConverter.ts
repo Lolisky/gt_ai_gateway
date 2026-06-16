@@ -235,6 +235,10 @@ export class AnthropicToResponsesConverter extends BaseConverter {
 
         const finalId = requestId || upstreamRes.id;
 
+        const inputTokens = upstreamRes.usage?.input_tokens || 0;
+        const cacheReadTokens = upstreamRes.usage?.input_tokens_details?.cached_tokens;
+        const nonCachedInputTokens = Math.max(0, inputTokens - (cacheReadTokens ?? 0));
+
         return {
             id: finalId.startsWith("msg_") ? finalId : `msg_${finalId.replace("resp_", "")}`,
             type: "message",
@@ -243,8 +247,9 @@ export class AnthropicToResponsesConverter extends BaseConverter {
             model: upstreamRes.model,
             stop_reason: stopReason,
             usage: {
-                input_tokens: upstreamRes.usage?.input_tokens || 0,
+                input_tokens: nonCachedInputTokens,
                 output_tokens: upstreamRes.usage?.output_tokens || 0,
+                ...(cacheReadTokens !== undefined ? { cache_read_input_tokens: cacheReadTokens } : {}),
             },
         };
     }
@@ -259,7 +264,9 @@ export class AnthropicToResponsesConverter extends BaseConverter {
             case "response.created": {
                 const resp = (data as any).response;
                 this.responseId = resp?.id || this.responseId;
-                this.inputTokens = resp?.usage?.input_tokens ?? 0;
+                const inputTokens = resp?.usage?.input_tokens ?? 0;
+                const cacheReadTokens = resp?.usage?.input_tokens_details?.cached_tokens;
+                this.inputTokens = Math.max(0, inputTokens - (cacheReadTokens ?? 0));
                 this.currentToolCallIndex = -1;
                 this.currentContentBlockIndex = -1;
                 this.inReasoning = false;
@@ -275,7 +282,11 @@ export class AnthropicToResponsesConverter extends BaseConverter {
                             content: [],
                             model: this.requestModel,
                             stop_reason: null,
-                            usage: { input_tokens: this.inputTokens, output_tokens: 0 },
+                            usage: {
+                                input_tokens: this.inputTokens,
+                                output_tokens: 0,
+                                ...(cacheReadTokens !== undefined ? { cache_read_input_tokens: cacheReadTokens } : {}),
+                            },
                         },
                     }),
                     event: "message_start",
@@ -415,7 +426,9 @@ export class AnthropicToResponsesConverter extends BaseConverter {
             case "response.completed": {
                 const resp = (data as any).response;
                 const outputTokens = resp?.usage?.output_tokens || 0;
-                const inputTokensVal = resp?.usage?.input_tokens || this.inputTokens;
+                const inputTokensVal = resp?.usage?.input_tokens ?? this.inputTokens;
+                const cacheReadTokens = resp?.usage?.input_tokens_details?.cached_tokens;
+                const nonCachedInputTokens = Math.max(0, inputTokensVal - (cacheReadTokens ?? 0));
 
                 // 判断 stop_reason
                 let stopReason = "end_turn";
@@ -429,7 +442,11 @@ export class AnthropicToResponsesConverter extends BaseConverter {
                     data: JSON.stringify({
                         type: "message_delta",
                         delta: { stop_reason: stopReason },
-                        usage: { output_tokens: outputTokens, input_tokens: inputTokensVal },
+                        usage: {
+                            output_tokens: outputTokens,
+                            input_tokens: nonCachedInputTokens,
+                            ...(cacheReadTokens !== undefined ? { cache_read_input_tokens: cacheReadTokens } : {}),
+                        },
                     }),
                     event: "message_delta",
                 });

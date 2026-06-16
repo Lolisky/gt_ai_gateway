@@ -75,7 +75,7 @@ class SgVendor extends Model {
     /**
      * Get the upstream format for protocol conversion.
      * Checks if the vendor supports the requested clientFormat natively (via custom URLs or default URLs).
-     * If not, tries to find an alternative supported format (OpenAI or Anthropic) for protocol conversion.
+     * If not, tries to find an alternative format with a supported converter.
      */
     getUpstreamFormat(clientFormat: ApiFormat): ApiFormat {
         const urls = this.getMergedUrls();
@@ -84,13 +84,18 @@ class SgVendor extends Model {
             return clientFormat;
         }
 
-        // Only OpenAI and Anthropic are supported for conversion right now
-        if (clientFormat === ApiFormat.OPENAI || clientFormat === ApiFormat.ANTHROPIC) {
-            const supportedAlternativeFormats: ApiFormat[] = [ApiFormat.OPENAI, ApiFormat.ANTHROPIC];
+        if (clientFormat === ApiFormat.RESPONSES && urls[ApiFormat.OPENAI]) {
+            return clientFormat;
+        }
 
-            for (const fmt of supportedAlternativeFormats) {
-                if (urls[fmt]) return fmt;
-            }
+        const supportedAlternativeFormats: Partial<Record<ApiFormat, ApiFormat[]>> = {
+            [ApiFormat.OPENAI]: [ApiFormat.ANTHROPIC],
+            [ApiFormat.ANTHROPIC]: [ApiFormat.OPENAI, ApiFormat.RESPONSES],
+            [ApiFormat.RESPONSES]: [ApiFormat.ANTHROPIC],
+        };
+
+        for (const fmt of supportedAlternativeFormats[clientFormat] ?? []) {
+            if (urls[fmt]) return fmt;
         }
 
         // If no format can be determined, or format doesn't support conversion, just return client format

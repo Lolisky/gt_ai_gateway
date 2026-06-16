@@ -55,8 +55,19 @@ export class ConverterFactory {
         }
 
         const requestConverter = this.create(clientFormat, upstreamFormat, requestModel);
+        if (!requestConverter) {
+            return null;
+        }
+
+        if (
+            (clientFormat === ApiFormat.ANTHROPIC && upstreamFormat === ApiFormat.RESPONSES) ||
+            (clientFormat === ApiFormat.RESPONSES && upstreamFormat === ApiFormat.ANTHROPIC)
+        ) {
+            return new ProtocolPairConverter(requestConverter, requestConverter);
+        }
+
         const responseConverter = this.create(upstreamFormat, clientFormat, requestModel);
-        if (!requestConverter || !responseConverter) {
+        if (!responseConverter) {
             return null;
         }
 

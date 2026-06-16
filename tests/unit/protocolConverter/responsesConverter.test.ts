@@ -1042,7 +1042,12 @@ describe("AnthropicToResponsesConverter - convertResponse", () => {
                     content: [{ type: "output_text", text: "Hello! How can I help?" }],
                 },
             ],
-            usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
+            usage: {
+                input_tokens: 10,
+                input_tokens_details: { cached_tokens: 4 },
+                output_tokens: 20,
+                total_tokens: 30,
+            },
         };
 
         const result = converter.convertResponse(upstreamRes);
@@ -1051,8 +1056,9 @@ describe("AnthropicToResponsesConverter - convertResponse", () => {
         expect(result.role).toBe("assistant");
         expect(result.content[0]).toEqual({ type: "text", text: "Hello! How can I help?" });
         expect(result.stop_reason).toBe("end_turn");
-        expect(result.usage.input_tokens).toBe(10);
+        expect(result.usage.input_tokens).toBe(6);
         expect(result.usage.output_tokens).toBe(20);
+        expect(result.usage.cache_read_input_tokens).toBe(4);
     });
 
     it("should convert function_call output to tool_use content block", () => {
@@ -1548,7 +1554,12 @@ describe("AnthropicToResponsesConverter - convertStreamEvent (Responses SSE → 
                             content: [{ type: "output_text", text: "Hello" }],
                         },
                     ],
-                    usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
+                    usage: {
+                        input_tokens: 10,
+                        input_tokens_details: { cached_tokens: 4 },
+                        output_tokens: 20,
+                        total_tokens: 30,
+                    },
                 },
             }),
         );
@@ -1559,7 +1570,9 @@ describe("AnthropicToResponsesConverter - convertStreamEvent (Responses SSE → 
 
         const deltaData = parseStreamEventData(events, 0);
         expect(deltaData.delta.stop_reason).toBe("end_turn");
+        expect(deltaData.usage.input_tokens).toBe(6);
         expect(deltaData.usage.output_tokens).toBe(20);
+        expect(deltaData.usage.cache_read_input_tokens).toBe(4);
     });
 
     it("should set stop_reason to tool_use when function_call in output", () => {
@@ -1626,6 +1639,76 @@ describe("ConverterFactory - Responses ↔ Anthropic routing", () => {
     it("should create pair converter for RESPONSES ↔ ANTHROPIC", () => {
         const pair = ConverterFactory.createPair(ApiFormat.RESPONSES, ApiFormat.ANTHROPIC);
         expect(pair).not.toBeNull();
+    });
+
+    it("should convert Anthropic client requests and Responses upstream responses through pair converter", () => {
+        const pair = ConverterFactory.createPair(ApiFormat.ANTHROPIC, ApiFormat.RESPONSES);
+        expect(pair).not.toBeNull();
+
+        const upstreamReq = pair!.convertRequest({
+            model: "gpt-5.5",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: "你好" }],
+        });
+        expect(upstreamReq.input[0].content[0].type).toBe("input_text");
+
+        const clientRes = pair!.convertResponse({
+            id: "resp_123",
+            object: "response",
+            created_at: 1677652288,
+            status: "completed",
+            model: "ppio/pa/gpt-5.5",
+            output: [
+                {
+                    type: "message",
+                    id: "msg_0",
+                    role: "assistant",
+                    status: "completed",
+                    content: [{ type: "output_text", text: "你好！" }],
+                },
+            ],
+            usage: {
+                input_tokens: 10,
+                input_tokens_details: { cached_tokens: 4 },
+                output_tokens: 2,
+                total_tokens: 12,
+            },
+        });
+
+        expect(clientRes.type).toBe("message");
+        expect(clientRes.content[0]).toEqual({ type: "text", text: "你好！" });
+        expect(clientRes.usage).toEqual({ input_tokens: 6, output_tokens: 2, cache_read_input_tokens: 4 });
+    });
+
+    it("should convert Responses client requests and Anthropic upstream responses through pair converter", () => {
+        const pair = ConverterFactory.createPair(ApiFormat.RESPONSES, ApiFormat.ANTHROPIC);
+        expect(pair).not.toBeNull();
+
+        const upstreamReq = pair!.convertRequest({
+            model: "claude-3-sonnet-20240229",
+            input: [
+                {
+                    type: "message",
+                    role: "user",
+                    content: [{ type: "input_text", text: "hello" }],
+                },
+            ],
+        });
+        expect(upstreamReq.messages[0].content[0]).toEqual({ type: "text", text: "hello" });
+
+        const clientRes = pair!.convertResponse({
+            id: "msg_123",
+            type: "message",
+            role: "assistant",
+            content: [{ type: "text", text: "Hello!" }],
+            model: "claude-3-sonnet-20240229",
+            stop_reason: "end_turn",
+            usage: { input_tokens: 10, output_tokens: 2 },
+        });
+
+        expect(clientRes.object).toBe("response");
+        expect(clientRes.output[0].type).toBe("message");
+        expect((clientRes.output[0] as any).content[0].text).toBe("Hello!");
     });
 
     it("should still create Anthropic ↔ OpenAI converters", () => {
