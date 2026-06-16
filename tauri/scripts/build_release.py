@@ -7,6 +7,7 @@ import shutil
 import json
 import time
 
+
 def run_command(command):
     cmd_str = ' '.join(shlex.quote(str(s)) for s in command)
     print(f"🚀 Executing: {cmd_str}")
@@ -17,6 +18,7 @@ def run_command(command):
     if process.returncode != 0:
         print(f"❌ Error: Command failed with code {process.returncode}", file=sys.stderr)
         sys.exit(process.returncode)
+
 
 def main():
     if len(sys.argv) < 2:
@@ -54,19 +56,25 @@ def main():
         print(f"❌ Error: {entitlements_path} not found!")
         sys.exit(1)
     
-    # 2. Diagnostic: print environment and keychain info
+    # 2. Diagnostic info
     print(f"\n--- Diagnostics ---")
     print(f"Target: {target}")
     print(f"App path: {app_path}")
     print(f"Python arch: {subprocess.run(['python3', '-c', 'import platform; print(platform.machine())'], capture_output=True, text=True).stdout.strip()}")
     print(f"macOS version: {subprocess.run(['sw_vers', '-productVersion'], capture_output=True, text=True).stdout.strip()}")
-    # List keychains and check keychain status
+
+    # Resolve keychain path (use absolute path to avoid interactive prompts under Rosetta)
+    keychain_path = os.path.expanduser("~/Library/Keychains/build.keychain-db")
+    if not os.path.exists(keychain_path):
+        keychain_path = "build.keychain"
+    print(f"Keychain path: {keychain_path}")
+
     print("\nKeychain list:")
     subprocess.run(["security", "list-keychains"])
-    print("\nDefault keychain:")
-    subprocess.run(["security", "default-keychain"])
-    print("\nKeychain lock status:")
-    subprocess.run(["security", "show-keychain-info", "build.keychain"], capture_output=False)
+
+    # Unlock keychain explicitly before signing (prevents interactive prompt under Rosetta)
+    print("\n--- Unlocking keychain before signing ---")
+    run_command(["security", "unlock-keychain", "-p", "build", keychain_path])
 
     # 2.1 Deep sign the app
     # First, sign the sidecar and any frameworks explicitly just in case
@@ -74,7 +82,7 @@ def main():
     if os.path.exists(backend_path):
         file_size = os.path.getsize(backend_path)
         print(f"\n--- Signing backend sidecar explicitly (size: {file_size / 1024 / 1024:.1f} MB) ---")
-        run_command(["codesign", "--force", "--options=runtime", "--entitlements", entitlements_path, "--sign", cert_name, backend_path])
+        run_command(["codesign", "--force", "--options=runtime", "--entitlements", entitlements_path, "--sign", cert_name, "--keychain", keychain_path, backend_path])
         
     # 2.2 Sign framework dylibs if any
     frameworks_dir = os.path.join(app_path, "Contents", "Frameworks")
@@ -84,10 +92,10 @@ def main():
             for file in files:
                 if file.endswith(".dylib") or file.endswith(".framework"):
                     fpath = os.path.join(root, file)
-                    run_command(["codesign", "--force", "--options=runtime", "--sign", cert_name, fpath])
+                    run_command(["codesign", "--force", "--options=runtime", "--sign", cert_name, "--keychain", keychain_path, fpath])
 
     print("\n--- Signing the main app bundle ---")
-    run_command(["codesign", "--deep", "--force", "--options=runtime", "--entitlements", entitlements_path, "--sign", cert_name, app_path])
+    run_command(["codesign", "--deep", "--force", "--options=runtime", "--entitlements", entitlements_path, "--sign", cert_name, "--keychain", keychain_path, app_path])
     
     # Verify signature
     print("\n--- Verifying signature ---")
@@ -133,7 +141,7 @@ def main():
     
     # Sign the DMG
     print("\n--- Signing DMG ---")
-    run_command(["codesign", "--force", "--sign", cert_name, dmg_path])
+    run_command(["codesign", "--force", "--sign", cert_name, "--keychain", keychain_path, dmg_path])
     
     # 4. Notarize
     if apple_id and apple_password and apple_team_id:
