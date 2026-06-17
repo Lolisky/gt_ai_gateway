@@ -28,28 +28,57 @@ export class ConfigItem {
     }
 }
 
+const cache = new Map<string, string | null>();
+let isAllLoaded = false;
+
 async function getConfig(name: ConfigKey | string, defaultValue: string = ""): Promise<ConfigItem> {
-    const config = await SgConfig.query().where("name", name).first();
-    return new ConfigItem(config?.value, defaultValue);
+    const key = name as string;
+    
+    if (cache.has(key)) {
+        return new ConfigItem(cache.get(key), defaultValue);
+    }
+
+    const config = await SgConfig.query().where("name", key).first();
+    if (config) {
+        cache.set(key, config.value);
+        return new ConfigItem(config.value, defaultValue);
+    }
+    
+    cache.set(key, null);
+    return new ConfigItem(undefined, defaultValue);
 }
 
 async function setValue(name: ConfigKey | string, value: string): Promise<SgConfig> {
-    const config = await SgConfig.query().where("name", name).first();
+    const key = name as string;
+    const config = await SgConfig.query().where("name", key).first();
+    
+    let result: SgConfig;
     if (config) {
         await config.update({ value });
-        return config;
+        result = config;
+    } else {
+        result = await SgConfig.query().create({ name: key, value });
     }
-
-    return await SgConfig.query().create({ name, value });
+    
+    cache.set(key, value);
+    return result;
 }
 
 async function getAll(): Promise<Record<string, string>> {
-    const configs = await SgConfig.query().get();
-    const result: Record<string, string> = {};
-    for (const config of configs) {
-        result[config.name] = config.value;
+    if (!isAllLoaded) {
+        const configs = await SgConfig.query().get();
+        for (const config of configs) {
+            cache.set(config.name, config.value);
+        }
+        isAllLoaded = true;
     }
-
+    
+    const result: Record<string, string> = {};
+    for (const [key, value] of cache.entries()) {
+        if (value !== null) {
+            result[key] = value;
+        }
+    }
     return result;
 }
 
@@ -61,9 +90,15 @@ async function updateAll(data: Record<string, string>): Promise<Record<string, s
     return await getAll();
 }
 
+function clearCache() {
+    cache.clear();
+    isAllLoaded = false;
+}
+
 export default {
     getConfig,
     setValue,
     getAll,
     updateAll,
+    clearCache,
 };

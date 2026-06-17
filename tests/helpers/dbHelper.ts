@@ -7,6 +7,7 @@ import {
     migrate as runMigrations,
     DBAdapter,
 } from "../../script/db";
+import configService from "../../src/service/configService";
 
 // Worker mode configuration - use test database
 const TEST_DB_NAME = "gt_ai_gateway_test";
@@ -341,6 +342,9 @@ async function truncate(): Promise<void> {
             console.error(`Failed to truncate table ${table.name}:`, e);
         }
     }
+
+    // Clear config cache to ensure test isolation
+    configService.clearCache();
 
     console.log("Tables truncated");
 }
