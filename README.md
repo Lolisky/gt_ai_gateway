@@ -104,6 +104,14 @@ docker run -d \
   - [测试手册](doc/dev/TestManual.md): 自动化测试环境架构设计、操作流程及调试方法。
   - [编程规范](GEMINI.md): 项目代码规范、开发技巧及 Git 提交指南。
 
+---
+
+*本软件由人类进行架构设计，[TogoSpace AI Team](https://github.com/alexazhou/TogoSpace) 进行开发，通过 500+ 测试用例对功能进行全面覆盖，确保高质量的代码实现。*
+
+*点击 [TogoSpace](https://github.com/alexazhou/TogoSpace)，即刻拥有你专属的 AI 团队。*
+
+![Togo Space](./images/dev_team.png)
+
 ## 🤝 参与贡献 (Contributing)
 
 欢迎来到 GT AI Gateway！非常感谢你对本项目的关注与支持。我们非常欢迎各种形式的 Pull Request (PR)，无论是修复 Bug、完善文档、增加新特性，还是添加更多常用的大模型供应商预设。
