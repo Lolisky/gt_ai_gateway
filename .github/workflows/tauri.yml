@@ -164,8 +164,21 @@ jobs:
           New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
           
           # Main exe
-          $releaseDir = "tauri\src-tauri\target\x86_64-pc-windows-msvc\release"
-          Get-ChildItem $releaseDir -File | Where-Object { $_.Name -match "^ai-gateway\.exe$" -or $_.Name -match "^GT AI Gateway\.exe$" } | Copy-Item -Destination $portableDir -Force
+          $releaseDirs = @("tauri\src-tauri\target\release", "tauri\src-tauri\target\x86_64-pc-windows-msvc\release")
+          $mainExeFound = $false
+          foreach ($dir in $releaseDirs) {
+              if (Test-Path $dir) {
+                  $found = Get-ChildItem $dir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^ai-gateway\.exe$" -or $_.Name -match "^GT AI Gateway\.exe$" }
+                  if ($found) {
+                      $found | Copy-Item -Destination $portableDir -Force
+                      $mainExeFound = $true
+                      break
+                  }
+              }
+          }
+          if (-not $mainExeFound) {
+              Write-Host "Warning: Main executable not found in expected release dirs!"
+          }
           
           # Sidecar
           $sidecarPath = "tauri\build\binaries\ai-gateway-backend-x86_64-pc-windows-msvc.exe"
