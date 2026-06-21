@@ -36,7 +36,7 @@ async function initSplash() {
         errorState.style.display = 'flex';
 
         if (code === 98) {
-            errorText.innerHTML = `后端 <b>8720</b> 端口被占用。 请清理占用端口的进程，或者修改配置文件中的服务端口。`;
+            errorText.innerHTML = `后端 <b>6722</b> 端口被占用。 请清理占用端口的进程，或者修改配置文件中的服务端口。`;
         } else {
             errorText.innerHTML = `后端异常退出 (代码：${code})`;
         }

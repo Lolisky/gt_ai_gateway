@@ -16,7 +16,7 @@ use tauri::{
     Manager, WindowEvent,
 };
 
-const DEFAULT_PORT: u16 = 8720;
+const DEFAULT_PORT: u16 = 6722;
 const DEFAULT_HOST: &str = "127.0.0.1";
 
 /// 存储后端实际使用的 URL，供前端通过 Tauri 命令查询
