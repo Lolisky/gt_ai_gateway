@@ -2,12 +2,16 @@ import type { ApplyClientConfigParams, ClientConfigStatus, CurrentClientConfig, 
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import tomlUtil from "../../util/tomlUtil";
+import { ClientName } from "../../constants";
 
 
 class CodexConfigAdapter extends BaseConfigAdapter {
     constructor(fs: FileSystemApi, path: PathApi, homeDir: string) {
         const codexHome = process.env.CODEX_HOME || path.join(homeDir, ".codex");
-        super(fs, path, "codex", "Codex", path.join(codexHome, "config.toml"));
+        super(fs, path, ClientName.CODEX, "Codex", path.join(codexHome, "config.toml"), [
+            path.join(codexHome, "config.toml"),
+            path.join(codexHome, "auth.json"),
+        ]);
     }
 
     private buildBaseUrl(params: ApplyClientConfigParams): string {
@@ -55,10 +59,12 @@ class CodexConfigAdapter extends BaseConfigAdapter {
             displayName: this.displayName,
             installed,
             configured,
-            backupExists: await configAdapterUtils.pathExists(this.fs, this.backupPath),
+            backupExists: false,
+            backupCount: 0,
+            backups: [],
             currentConfig,
             configPath: this.configPath,
-            backupPath: this.backupPath,
+            configPaths: this.configPaths,
             message,
         };
     }

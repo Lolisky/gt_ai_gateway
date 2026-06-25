@@ -28,6 +28,11 @@ export enum ApiFormat {
     RESPONSES = "responses",
 }
 
+export enum ClientName {
+    CLAUDE_CODE = "claude-code",
+    CODEX = "codex",
+}
+
 export enum UserType {
     NORMAL = "normal",
     ADMIN = "admin",

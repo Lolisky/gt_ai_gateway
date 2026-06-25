@@ -1,4 +1,7 @@
-type ClientName = "claude-code" | "codex";
+import { ClientName } from "../../constants";
+import type { ClientConfigContent } from "../../model/sgClientConfigBackup";
+
+
 type ConnectionMode = "gateway" | "vendor";
 type ClientProtocol = "anthropic" | "responses";
 
@@ -13,6 +16,18 @@ interface ApplyClientConfigParams {
 
 interface RestoreClientConfigParams {
     client: ClientName;
+    backupId: number;
+}
+
+interface RenameClientConfigBackupParams {
+    client: ClientName;
+    backupId: number;
+    name: string;
+}
+
+interface CreateClientConfigBackupParams {
+    client: ClientName;
+    name?: string;
 }
 
 interface ClientConfigStatusResponse {
@@ -27,9 +42,11 @@ interface ClientConfigStatus {
     installed: boolean;
     configured: boolean;
     backupExists: boolean;
+    backupCount: number;
+    backups: ClientConfigBackupInfo[];
     currentConfig: CurrentClientConfig | null;
     configPath: string;
-    backupPath: string;
+    configPaths: string[];
     message?: string;
 }
 
@@ -49,9 +66,16 @@ interface GatewayUserInfo {
     status: string;
 }
 
+interface ClientConfigBackupInfo {
+    id: number;
+    client: ClientName;
+    name: string;
+    fileCount: number;
+    createdAt: string;
+}
+
 interface FileSystemApi {
     access(path: string): Promise<void>;
-    copyFile(source: string, target: string): Promise<void>;
     mkdir(path: string, options: { recursive: boolean }): Promise<string | undefined>;
     readFile(path: string, encoding: "utf-8"): Promise<string>;
     writeFile(path: string, content: string, encoding: "utf-8"): Promise<void>;
@@ -66,24 +90,30 @@ interface ConfigAdapter {
     readonly client: ClientName;
     readonly displayName: string;
     readonly configPath: string;
-    readonly backupPath: string;
+    readonly configPaths: string[];
 
     getStatus(): Promise<ClientConfigStatus>;
     apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus>;
-    restore(): Promise<ClientConfigStatus>;
+    readConfigFiles(): Promise<ClientConfigContent>;
+    restore(configContent: ClientConfigContent): Promise<ClientConfigStatus>;
 }
 
 export type {
     ApplyClientConfigParams,
+    ClientConfigBackupInfo,
+    ClientConfigContent,
     ClientConfigStatus,
     ClientConfigStatusResponse,
-    ClientName,
     ClientProtocol,
     ConfigAdapter,
     ConnectionMode,
+    CreateClientConfigBackupParams,
     CurrentClientConfig,
     FileSystemApi,
     GatewayUserInfo,
     PathApi,
+    RenameClientConfigBackupParams,
     RestoreClientConfigParams,
 };
+
+export { ClientName };

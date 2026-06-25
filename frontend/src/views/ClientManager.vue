@@ -45,12 +45,24 @@
                                         {{ client.configured ? '已配置' : '未配置' }}
                                     </a-tag>
                                 </div>
-                                <a-descriptions :column="1" size="small" bordered>
-                                    <a-descriptions-item label="当前配置">
-                                        <div class="current-config">
+                                <div class="config-row-list">
+                                    <div class="config-row current-config-row">
+                                        <div class="config-row-content">
+                                            <div class="config-row-name config-row-name-with-action">
+                                                <span>{{ getCurrentConfigName(client) }}</span>
+                                                <a-tag color="blue" class="current-config-tag">当前配置</a-tag>
+                                            </div>
                                             <div class="config-line">
                                                 <span class="config-label">文件</span>
-                                                <span class="config-path">{{ client.configPath }}</span>
+                                                <div class="config-path-list">
+                                                    <span
+                                                        v-for="path in client.configPaths"
+                                                        :key="path"
+                                                        class="config-path"
+                                                    >
+                                                        {{ path }}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <template v-if="client.currentConfig">
                                                 <div class="config-line">
@@ -76,35 +88,67 @@
                                                 <span class="config-muted">未检测到有效配置</span>
                                             </div>
                                         </div>
-                                    </a-descriptions-item>
-                                    <a-descriptions-item label="备份文件">
-                                        <span class="config-path">{{ client.backupPath }}</span>
-                                        <a-tag :color="client.backupExists ? 'green' : 'default'" class="backup-tag">
-                                            {{ client.backupExists ? '已创建' : '未创建' }}
-                                        </a-tag>
-                                    </a-descriptions-item>
-                                </a-descriptions>
+                                        <div class="config-row-actions">
+                                            <a-button
+                                                type="primary"
+                                                :disabled="!client.installed"
+                                                :loading="savingClient === client.client"
+                                                @click="openConfigDialog(client)"
+                                            >
+                                                <ToolOutlined />
+                                                修改
+                                            </a-button>
+                                            <a-button
+                                                :disabled="!client.installed"
+                                                :loading="backingUpClient === client.client"
+                                                @click="backupCurrentConfig(client.client)"
+                                            >
+                                                <CopyOutlined />
+                                                复制
+                                            </a-button>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        v-for="backup in client.backups"
+                                        :key="backup.id"
+                                        class="config-row saved-config-row"
+                                    >
+                                        <div class="config-row-content">
+                                            <div class="config-row-name config-row-name-with-action">
+                                                <span>{{ backup.name }}</span>
+                                                <a-button
+                                                    type="text"
+                                                    size="small"
+                                                    class="rename-button"
+                                                    @click="openRenameDialog(client.client, backup)"
+                                                >
+                                                    <EditOutlined />
+                                                </a-button>
+                                            </div>
+                                            <div class="backup-detail">
+                                                {{ backup.fileCount }} 个文件 · {{ formatBackupTime(backup.createdAt) }}
+                                            </div>
+                                        </div>
+                                        <div class="config-row-actions">
+                                            <a-button
+                                                type="link"
+                                                :loading="restoringBackupId === backup.id"
+                                                @click="restoreConfig(client.client, backup.id)"
+                                            >
+                                                切换
+                                            </a-button>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="client.backups.length === 0" class="config-row empty-config-row">
+                                        <div class="config-row-content">
+                                            <div class="config-row-name">暂无配置</div>
+                                            <span class="config-muted">暂无已保存配置</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div v-if="client.message" class="client-message">{{ client.message }}</div>
-                            </div>
-                            <div class="client-actions">
-                                <a-button
-                                    type="primary"
-                                    :disabled="!client.installed"
-                                    :loading="savingClient === client.client"
-                                    @click="openConfigDialog(client)"
-                                >
-                                    <ToolOutlined />
-                                    配置
-                                </a-button>
-                                <a-button
-                                    danger
-                                    :disabled="!client.backupExists"
-                                    :loading="restoringClient === client.client"
-                                    @click="restoreConfig(client.client)"
-                                >
-                                    <RollbackOutlined />
-                                    恢复
-                                </a-button>
                             </div>
                         </div>
                     </a-card>
@@ -276,15 +320,38 @@
                 </a-form>
             </a-spin>
         </a-modal>
+
+        <a-modal
+            v-model:open="renameDialogVisible"
+            title="修改配置名称"
+            :confirm-loading="renamingBackupId === renameForm.backupId"
+            ok-text="保存"
+            cancel-text="取消"
+            width="420px"
+            @ok="submitRenameConfig"
+        >
+            <a-form layout="vertical">
+                <a-form-item label="名称" required>
+                    <a-input v-model:value="renameForm.name" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue/es';
-import { InfoCircleOutlined, ReloadOutlined, RollbackOutlined, ToolOutlined } from '@ant-design/icons-vue';
-import { applyClientConfig, getClientConfigStatus, restoreClientConfig } from '@/api/clientConfig';
-import type { ClientConfigStatus, ClientConnectionMode, ClientName, ClientProtocol } from '@/types/clientConfig';
+import { CopyOutlined, EditOutlined, InfoCircleOutlined, ReloadOutlined, ToolOutlined } from '@ant-design/icons-vue';
+import {
+    applyClientConfig,
+    createClientConfigBackup,
+    getClientConfigStatus,
+    renameClientConfigBackup,
+    restoreClientConfig,
+} from '@/api/clientConfig';
+import { ClientName } from '@/types/clientConfig';
+import type { ClientConfigBackupInfo, ClientConfigStatus, ClientConnectionMode, ClientProtocol } from '@/types/clientConfig';
 import { getBaseURL } from '@/utils/request';
 import { listUsers } from '@/api/user';
 import { listModels } from '@/api/model';
@@ -300,7 +367,9 @@ const dialogLoading = ref(false);
 const available = ref(true);
 const unavailableReason = ref('');
 const savingClient = ref<ClientName | ''>('');
-const restoringClient = ref<ClientName | ''>('');
+const backingUpClient = ref<ClientName | ''>('');
+const restoringBackupId = ref<number | null>(null);
+const renamingBackupId = ref<number | null>(null);
 const clients = ref<ClientConfigStatus[]>([]);
 const activeClient = ref<ClientName | ''>('');
 const users = ref<User[]>([]);
@@ -310,6 +379,7 @@ const vendorModels = ref<VendorModel[]>([]);
 const vendorPresetUrls = ref<Record<string, Record<string, string>>>({});
 const selectedClient = ref<ClientConfigStatus | null>(null);
 const configDialogVisible = ref(false);
+const renameDialogVisible = ref(false);
 
 const configForm = reactive<{
     client: ClientName | '';
@@ -333,14 +403,24 @@ const configForm = reactive<{
     upstreamModel: '',
 });
 
+const renameForm = reactive<{
+    client: ClientName | '';
+    backupId: number | null;
+    name: string;
+}>({
+    client: '',
+    backupId: null,
+    name: '',
+});
+
 const protocolByClient: Record<ClientName, ClientProtocol> = {
-    'claude-code': 'anthropic',
-    codex: 'responses',
+    [ClientName.CLAUDE_CODE]: 'anthropic',
+    [ClientName.CODEX]: 'responses',
 };
 
 const clientProtocolLabels: Record<ClientName, string> = {
-    'claude-code': 'Anthropic',
-    codex: 'OpenAI Responses',
+    [ClientName.CLAUDE_CODE]: 'Anthropic',
+    [ClientName.CODEX]: 'OpenAI Responses',
 };
 
 const enabledModels = computed(() => models.value.filter(model => model.enable));
@@ -445,6 +525,14 @@ async function submitConfig(): Promise<void> {
     const request = buildApplyRequest();
     if (!request) return;
 
+    const target = selectedClient.value;
+    if (target && target.backupCount < 1) {
+        const shouldContinue = await confirmInitialBackup(target);
+        if (!shouldContinue) {
+            return;
+        }
+    }
+
     savingClient.value = configForm.client;
     try {
         const status = await applyClientConfig(request);
@@ -454,6 +542,29 @@ async function submitConfig(): Promise<void> {
     } finally {
         savingClient.value = '';
     }
+}
+
+function confirmInitialBackup(client: ClientConfigStatus): Promise<boolean> {
+    return new Promise((resolve) => {
+        Modal.confirm({
+            title: `先保存 ${client.displayName} 当前配置？`,
+            content: '当前客户端还没有保存过配置。建议先保存当前配置，后续可以从已保存配置中切换回来。',
+            okText: '保存并继续',
+            cancelText: '暂不配置',
+            async onOk() {
+                try {
+                    await backupCurrentConfig(client.client, false);
+                    resolve(true);
+                } catch (error) {
+                    resolve(false);
+                    throw error;
+                }
+            },
+            onCancel() {
+                resolve(false);
+            },
+        });
+    });
 }
 
 function buildApplyRequest() {
@@ -623,25 +734,99 @@ function getVendorTypeTagStyle(type?: VendorType) {
     return undefined;
 }
 
-function restoreConfig(client: ClientName): void {
+function getCurrentConfigName(client: ClientConfigStatus): string {
+    return client.currentConfig?.model || `${client.displayName} 配置`;
+}
+
+async function backupCurrentConfig(client: ClientName, showSuccess = true): Promise<void> {
     const target = clients.value.find(item => item.client === client);
+    if (!target) return;
+
+    backingUpClient.value = client;
+    try {
+        const backup = await createClientConfigBackup({ client });
+        target.backups = [backup, ...target.backups];
+        target.backupCount = target.backups.length;
+        target.backupExists = target.backupCount > 0;
+        if (selectedClient.value?.client === client) {
+            selectedClient.value = target;
+        }
+        if (showSuccess) {
+            message.success(`${target.displayName} 当前配置已保存`);
+        }
+    } finally {
+        backingUpClient.value = '';
+    }
+}
+
+function openRenameDialog(client: ClientName, backup: ClientConfigBackupInfo): void {
+    renameForm.client = client;
+    renameForm.backupId = backup.id;
+    renameForm.name = backup.name;
+    renameDialogVisible.value = true;
+}
+
+async function submitRenameConfig(): Promise<void> {
+    if (!renameForm.client || !renameForm.backupId) {
+        return;
+    }
+
+    const name = renameForm.name.trim();
+    if (!name) {
+        message.error('请输入配置名称');
+        return;
+    }
+
+    renamingBackupId.value = renameForm.backupId;
+    try {
+        const backup = await renameClientConfigBackup({
+            client: renameForm.client,
+            backupId: renameForm.backupId,
+            name,
+        });
+        updateBackupInfo(backup);
+        renameDialogVisible.value = false;
+        message.success('配置名称已修改');
+    } finally {
+        renamingBackupId.value = null;
+    }
+}
+
+function restoreConfig(client: ClientName, backupId?: number): void {
+    const target = clients.value.find(item => item.client === client);
+    const selectedBackup = target?.backups.find(item => item.id === backupId) || target?.backups[0];
+    if (!selectedBackup) {
+        message.error('没有可恢复的配置');
+        return;
+    }
+
     Modal.confirm({
-        title: `恢复 ${target?.displayName || '客户端'} 配置？`,
-        content: '将使用首次配置前保存的备份文件覆盖当前配置。',
-        okText: '恢复',
+        title: `切换 ${target?.displayName || '客户端'} 配置？`,
+        content: `将使用「${selectedBackup.name}」覆盖当前配置。`,
+        okText: '切换',
         okType: 'danger',
         cancelText: '取消',
         async onOk() {
-            restoringClient.value = client;
+            restoringBackupId.value = selectedBackup.id;
             try {
-                const status = await restoreClientConfig({ client });
+                const status = await restoreClientConfig({ client, backupId: selectedBackup.id });
                 updateClientStatus(status);
-                message.success(`${status.displayName} 已恢复`);
+                message.success(`${status.displayName} 已切换`);
             } finally {
-                restoringClient.value = '';
+                restoringBackupId.value = null;
             }
         },
     });
+}
+
+function formatBackupTime(value: string): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString();
 }
 
 function updateClientStatus(status: ClientConfigStatus): void {
@@ -651,6 +836,16 @@ function updateClientStatus(status: ClientConfigStatus): void {
     } else {
         clients.value.push(status);
     }
+}
+
+function updateBackupInfo(backup: ClientConfigBackupInfo): void {
+    const client = clients.value.find(item => item.client === backup.client);
+    const index = client?.backups.findIndex(item => item.id === backup.id) ?? -1;
+    if (!client || index < 0) {
+        return;
+    }
+
+    client.backups[index] = backup;
 }
 </script>
 
@@ -712,10 +907,7 @@ function updateClientStatus(status: ClientConfigStatus): void {
 }
 
 .client-main {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
+    display: block;
 }
 
 .client-info {
@@ -745,9 +937,61 @@ function updateClientStatus(status: ClientConfigStatus): void {
     word-break: break-all;
 }
 
-.current-config {
+.config-path-list {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.config-row-list {
+    display: grid;
+    gap: 10px;
+}
+
+.config-row {
+    align-items: center;
+    border: 1px solid var(--border-color, #f0f0f0);
+    border-radius: 8px;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 16px;
+}
+
+.config-row-name {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.config-row-name-with-action {
+    align-items: center;
+    display: inline-flex;
+    gap: 4px;
+    min-width: 0;
+}
+
+.rename-button {
+    color: var(--text-secondary, #8c8c8c);
+    flex-shrink: 0;
+}
+
+.current-config-tag {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.config-row-content {
     display: grid;
     gap: 8px;
+    min-width: 0;
+}
+
+.config-row-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    white-space: nowrap;
 }
 
 .config-line {
@@ -772,21 +1016,15 @@ function updateClientStatus(status: ClientConfigStatus): void {
     margin-left: 2px;
 }
 
-.backup-tag {
-    margin-left: 8px;
+.backup-detail {
+    color: var(--text-secondary, #8c8c8c);
+    font-size: 12px;
 }
 
 .client-message {
     margin-top: 8px;
     color: var(--accent-danger, #cf1322);
     font-size: 13px;
-}
-
-.client-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
 }
 
 .empty-state {
@@ -837,12 +1075,13 @@ function updateClientStatus(status: ClientConfigStatus): void {
         padding: 16px;
     }
 
-    .client-main {
+    .config-row {
         align-items: stretch;
-        flex-direction: column;
+        grid-template-columns: 1fr;
+        gap: 10px;
     }
 
-    .client-actions {
+    .config-row-actions {
         justify-content: flex-start;
     }
 }

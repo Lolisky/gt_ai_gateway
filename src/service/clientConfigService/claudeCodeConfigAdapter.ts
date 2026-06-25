@@ -1,11 +1,12 @@
 import type { ApplyClientConfigParams, ClientConfigStatus, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
+import { ClientName } from "../../constants";
 
 
 class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
     constructor(fs: FileSystemApi, path: PathApi, homeDir: string) {
-        super(fs, path, "claude-code", "Claude Code", path.join(homeDir, ".claude", "settings.json"));
+        super(fs, path, ClientName.CLAUDE_CODE, "Claude Code", path.join(homeDir, ".claude", "settings.json"));
     }
 
     private buildBaseUrl(params: ApplyClientConfigParams): string {
@@ -51,10 +52,12 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
             displayName: this.displayName,
             installed,
             configured,
-            backupExists: await configAdapterUtils.pathExists(this.fs, this.backupPath),
+            backupExists: false,
+            backupCount: 0,
+            backups: [],
             currentConfig,
             configPath: this.configPath,
-            backupPath: this.backupPath,
+            configPaths: this.configPaths,
             message,
         };
     }

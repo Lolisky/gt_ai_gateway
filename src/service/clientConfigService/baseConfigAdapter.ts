@@ -1,5 +1,6 @@
 import type {
     ApplyClientConfigParams,
+    ClientConfigContent,
     ClientConfigStatus,
     ClientName,
     ConfigAdapter,
@@ -16,15 +17,22 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     readonly client: ClientName;
     readonly displayName: string;
     readonly configPath: string;
-    readonly backupPath: string;
+    readonly configPaths: string[];
 
-    constructor(fs: FileSystemApi, path: PathApi, client: ClientName, displayName: string, configPath: string) {
+    constructor(
+        fs: FileSystemApi,
+        path: PathApi,
+        client: ClientName,
+        displayName: string,
+        configPath: string,
+        configPaths?: string[],
+    ) {
         this.fs = fs;
         this.path = path;
         this.client = client;
         this.displayName = displayName;
         this.configPath = configPath;
-        this.backupPath = `${configPath}.gt-ai-gateway.bak`;
+        this.configPaths = configPaths || [configPath];
     }
 
 
@@ -44,8 +52,20 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
 
     protected async writeConfigFile(content: string): Promise<void> {
         await this.fs.mkdir(this.path.dirname(this.configPath), { recursive: true });
-        await configAdapterUtils.ensureBackup(this.fs, this.configPath, this.backupPath);
         await this.fs.writeFile(this.configPath, content, "utf-8");
+    }
+
+
+    async readConfigFiles(): Promise<ClientConfigContent> {
+        const configContent: ClientConfigContent = {};
+
+        for (const filePath of this.configPaths) {
+            if (await configAdapterUtils.pathExists(this.fs, filePath)) {
+                configContent[filePath] = await this.fs.readFile(filePath, "utf-8");
+            }
+        }
+
+        return configContent;
     }
 
 
@@ -55,12 +75,16 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     abstract apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus>;
 
 
-    async restore(): Promise<ClientConfigStatus> {
-        if (!(await configAdapterUtils.pathExists(this.fs, this.backupPath))) {
-            throw new Error(`${this.displayName} backup file not found`);
+    async restore(configContent: ClientConfigContent): Promise<ClientConfigStatus> {
+        for (const [filePath, content] of Object.entries(configContent)) {
+            if (!this.configPaths.includes(filePath)) {
+                throw new Error(`Unsupported config file path: ${filePath}`);
+            }
+
+            await this.fs.mkdir(this.path.dirname(filePath), { recursive: true });
+            await this.fs.writeFile(filePath, content, "utf-8");
         }
 
-        await this.fs.copyFile(this.backupPath, this.configPath);
         return await this.getStatus();
     }
 }

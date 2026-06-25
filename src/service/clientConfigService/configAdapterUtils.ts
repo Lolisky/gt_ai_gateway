@@ -1,8 +1,5 @@
 import { SgUser } from "../../model/sgUser";
-import type { ApplyClientConfigParams, FileSystemApi, GatewayUserInfo } from "./types";
-
-
-
+import type { FileSystemApi, GatewayUserInfo } from "./types";
 
 
 async function pathExists(fs: FileSystemApi, path: string): Promise<boolean> {
@@ -27,20 +24,6 @@ function parseJsonConfig(content: string): Record<string, any> {
 
     return parsed;
 }
-
-
-async function ensureBackup(fs: FileSystemApi, configPath: string, backupPath: string): Promise<void> {
-    if (await pathExists(fs, backupPath)) {
-        return;
-    }
-
-    if (await pathExists(fs, configPath)) {
-        await fs.copyFile(configPath, backupPath);
-    }
-}
-
-
-
 
 
 async function findGatewayUserByToken(token: string): Promise<GatewayUserInfo | null> {
@@ -70,7 +53,6 @@ async function findGatewayUserByToken(token: string): Promise<GatewayUserInfo | 
 
 
 export default {
-    ensureBackup,
     findGatewayUserByToken,
     parseJsonConfig,
     pathExists,

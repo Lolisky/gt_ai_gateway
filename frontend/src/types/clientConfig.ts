@@ -1,4 +1,10 @@
-export type ClientName = 'claude-code' | 'codex';
+export const ClientName = {
+    CLAUDE_CODE: 'claude-code',
+    CODEX: 'codex',
+} as const;
+
+export type ClientName = typeof ClientName[keyof typeof ClientName];
+
 export type ClientConnectionMode = 'gateway' | 'vendor';
 export type ClientProtocol = 'anthropic' | 'responses';
 
@@ -8,9 +14,11 @@ export interface ClientConfigStatus {
     installed: boolean;
     configured: boolean;
     backupExists: boolean;
+    backupCount: number;
+    backups: ClientConfigBackupInfo[];
     currentConfig: CurrentClientConfig | null;
     configPath: string;
-    backupPath: string;
+    configPaths: string[];
     message?: string;
 }
 
@@ -30,6 +38,14 @@ export interface GatewayUserInfo {
     status: string;
 }
 
+export interface ClientConfigBackupInfo {
+    id: number;
+    client: ClientName;
+    name: string;
+    fileCount: number;
+    createdAt: string;
+}
+
 export interface ClientConfigStatusResponse {
     available: boolean;
     reason?: string;
@@ -45,6 +61,18 @@ export interface ApplyClientConfigRequest {
     model: string;
 }
 
+export interface CreateClientConfigBackupRequest {
+    client: ClientName;
+    name?: string;
+}
+
+export interface RenameClientConfigBackupRequest {
+    client: ClientName;
+    backupId: number;
+    name: string;
+}
+
 export interface RestoreClientConfigRequest {
     client: ClientName;
+    backupId: number;
 }

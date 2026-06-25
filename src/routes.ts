@@ -88,6 +88,8 @@ app.get("/config.json", authMiddleware.requireAdmin, configController.getConfig)
 app.put("/config.json", authMiddleware.requireAdmin, configController.updateConfig);
 app.get("/client-config/status.json", authMiddleware.requireAdmin, clientConfigController.status);
 app.post("/client-config/apply.json", authMiddleware.requireAdmin, clientConfigController.apply);
+app.post("/client-config/backup.json", authMiddleware.requireAdmin, clientConfigController.backup);
+app.post("/client-config/backup/rename.json", authMiddleware.requireAdmin, clientConfigController.renameBackup);
 app.post("/client-config/restore.json", authMiddleware.requireAdmin, clientConfigController.restore);
 
 // Vendor (需要管理员权限)

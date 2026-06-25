@@ -1,11 +1,16 @@
 import ormService from "../ormService";
+import SgClientConfigBackup from "../../model/sgClientConfigBackup";
 import type {
     ApplyClientConfigParams,
+    ClientConfigBackupInfo,
     ClientConfigStatus,
     ClientConfigStatusResponse,
+    ClientName,
     ConfigAdapter,
+    CreateClientConfigBackupParams,
     FileSystemApi,
     PathApi,
+    RenameClientConfigBackupParams,
     RestoreClientConfigParams,
 } from "./types";
 import ClaudeCodeConfigAdapter from "./claudeCodeConfigAdapter";
@@ -38,7 +43,7 @@ async function getAdapters(): Promise<ConfigAdapter[]> {
 }
 
 
-async function getAdapter(client: string): Promise<ConfigAdapter> {
+async function getAdapter(client: ClientName): Promise<ConfigAdapter> {
     const adapters = await getAdapters();
     const adapter = adapters.find(item => item.client === client);
     if (!adapter) {
@@ -46,6 +51,63 @@ async function getAdapter(client: string): Promise<ConfigAdapter> {
     }
 
     return adapter;
+}
+
+
+function formatBackupName(client: ClientName): string {
+    const date = new Date();
+    const timestamp = date.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+    return `${client} ${timestamp}`;
+}
+
+
+function toBackupInfo(record: any): ClientConfigBackupInfo {
+    return {
+        id: Number(record.id),
+        client: record.client as ClientName,
+        name: record.name,
+        fileCount: Object.keys(record.configContent || {}).length,
+        createdAt: String(record.created_at || record.createdAt || ""),
+    };
+}
+
+
+function normalizeBackupRecords(records: any): any[] {
+    if (Array.isArray(records)) {
+        return records;
+    }
+
+    if (Array.isArray(records?.items)) {
+        return records.items;
+    }
+
+    if (typeof records?.toData === "function") {
+        const data = records.toData();
+        return Array.isArray(data) ? data : [];
+    }
+
+    return [];
+}
+
+
+async function getBackups(client: ClientName): Promise<ClientConfigBackupInfo[]> {
+    const records = await SgClientConfigBackup.query()
+        .where("client", client)
+        .orderBy("id", "desc")
+        .get();
+
+    return normalizeBackupRecords(records).map(toBackupInfo);
+}
+
+
+async function enrichStatus(status: ClientConfigStatus): Promise<ClientConfigStatus> {
+    const backups = await getBackups(status.client);
+    return {
+        ...status,
+        backupExists: backups.length > 0,
+        backupCount: backups.length,
+        backups,
+    };
 }
 
 
@@ -59,7 +121,9 @@ async function getStatus(): Promise<ClientConfigStatusResponse> {
     }
 
     const adapters = await getAdapters();
-    const clients = await Promise.all(adapters.map(adapter => adapter.getStatus()));
+    const clients = await Promise.all(adapters.map(async (adapter) => {
+        return await enrichStatus(await adapter.getStatus());
+    }));
     return {
         available: true,
         clients,
@@ -81,7 +145,7 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
     }
 
     const adapter = await getAdapter(params.client);
-    return await adapter.apply({
+    const status = await adapter.apply({
         ...params,
         connectionMode: params.connectionMode || "gateway",
         protocol: params.protocol,
@@ -89,6 +153,49 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
         apiKey: params.apiKey.trim(),
         model: params.model?.trim() || "",
     });
+    return await enrichStatus(status);
+}
+
+
+async function createBackup(params: CreateClientConfigBackupParams): Promise<ClientConfigBackupInfo> {
+    if (ormService.isWorker) {
+        throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
+    }
+
+    const adapter = await getAdapter(params.client);
+    const configContent = await adapter.readConfigFiles();
+    const record = await SgClientConfigBackup.query().create({
+        client: params.client,
+        name: params.name?.trim() || formatBackupName(params.client),
+        configContent,
+    });
+
+    return toBackupInfo(record);
+}
+
+
+async function renameBackup(params: RenameClientConfigBackupParams): Promise<ClientConfigBackupInfo> {
+    if (ormService.isWorker) {
+        throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
+    }
+
+    const name = params.name?.trim();
+    if (!name) {
+        throw new Error("Backup name is required");
+    }
+
+    const backup = await SgClientConfigBackup.query()
+        .where("id", params.backupId)
+        .where("client", params.client)
+        .first();
+
+    if (!backup) {
+        throw new Error("Backup not found");
+    }
+
+    await backup.update({ name });
+    backup.name = name;
+    return toBackupInfo(backup);
 }
 
 
@@ -98,18 +205,30 @@ async function restoreConfig(params: RestoreClientConfigParams): Promise<ClientC
     }
 
     const adapter = await getAdapter(params.client);
-    return await adapter.restore();
+    const backup = await SgClientConfigBackup.query()
+        .where("id", params.backupId)
+        .where("client", params.client)
+        .first();
+
+    if (!backup) {
+        throw new Error("Backup not found");
+    }
+
+    return await enrichStatus(await adapter.restore(backup.configContent));
 }
 
 
 export default {
+    createBackup,
     getStatus,
     applyConfig,
+    renameBackup,
     restoreConfig,
 };
 
 export type {
     ApplyClientConfigParams,
+    ClientConfigBackupInfo,
     ClientConfigStatus,
     ClientConfigStatusResponse,
 };
