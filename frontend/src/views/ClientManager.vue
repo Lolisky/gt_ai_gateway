@@ -84,6 +84,8 @@
                                         </div>
                                         <div class="config-row-actions">
                                             <a-button
+                                                size="small"
+                                                style="font-size: 13px;"
                                                 :disabled="!client.currentConfig"
                                                 @click="openDetailDialog(client, client.currentConfig, getCurrentConfigName(client))"
                                             >
@@ -92,6 +94,8 @@
                                             </a-button>
                                             <a-button
                                                 type="primary"
+                                                size="small"
+                                                style="font-size: 13px;"
                                                 :disabled="!client.installed"
                                                 :loading="savingClient === client.client"
                                                 @click="openConfigDialog(client)"
@@ -100,6 +104,8 @@
                                                 修改
                                             </a-button>
                                             <a-button
+                                                size="small"
+                                                style="font-size: 13px;"
                                                 :disabled="!client.installed"
                                                 :loading="backingUpClient === client.client"
                                                 @click="backupCurrentConfig(client.client)"
@@ -158,6 +164,8 @@
                                         </div>
                                         <div class="config-row-actions">
                                             <a-button
+                                                size="small"
+                                                style="font-size: 13px;"
                                                 :disabled="!backup.config"
                                                 @click="openDetailDialog(client, backup.config, backup.name)"
                                             >
@@ -165,6 +173,8 @@
                                                 查看
                                             </a-button>
                                             <a-button
+                                                size="small"
+                                                style="font-size: 13px;"
                                                 type="link"
                                                 :loading="restoringBackupId === backup.id"
                                                 @click="restoreConfig(client.client, backup.id)"
