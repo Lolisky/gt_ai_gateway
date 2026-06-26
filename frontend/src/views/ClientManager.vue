@@ -1090,7 +1090,7 @@ function applyConfig(client: ClientName, backupId?: number): void {
             try {
                 const status = await applyClientConfig({ client, backupId: selectedBackup.id });
                 updateClientStatus(status);
-                message.success(`${status.displayName} 已切换`);
+                message.success('配置切换成功');
             } finally {
                 restoringBackupId.value = null;
             }
