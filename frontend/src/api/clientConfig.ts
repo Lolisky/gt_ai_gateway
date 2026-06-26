@@ -5,12 +5,17 @@ import type {
     ClientConfigStatus,
     ClientConfigStatusResponse,
     CreateClientConfigBackupRequest,
+    CreateClientConfigRequest,
+    DeleteClientConfigBackupRequest,
     RenameClientConfigBackupRequest,
-    RestoreClientConfigRequest,
 } from '../types/clientConfig';
 
 export async function getClientConfigStatus(): Promise<ClientConfigStatusResponse> {
     return request.get('/client-config/status.json');
+}
+
+export async function createClientConfig(data: CreateClientConfigRequest): Promise<ClientConfigStatus> {
+    return request.post('/client-config/create.json', data);
 }
 
 export async function applyClientConfig(data: ApplyClientConfigRequest): Promise<ClientConfigStatus> {
@@ -25,6 +30,6 @@ export async function renameClientConfigBackup(data: RenameClientConfigBackupReq
     return request.post('/client-config/backup/rename.json', data);
 }
 
-export async function restoreClientConfig(data: RestoreClientConfigRequest): Promise<ClientConfigStatus> {
-    return request.post('/client-config/restore.json', data);
+export async function deleteClientConfigBackup(data: DeleteClientConfigBackupRequest): Promise<ClientConfigStatus> {
+    return request.post('/client-config/backup/delete.json', data);
 }

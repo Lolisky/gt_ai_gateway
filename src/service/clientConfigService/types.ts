@@ -5,7 +5,7 @@ import type { ClientConfigContent } from "../../model/sgClientConfigBackup";
 type ConnectionMode = "gateway" | "vendor";
 type ClientProtocol = "anthropic" | "responses";
 
-interface ApplyClientConfigParams {
+interface CreateClientConfigParams {
     client: ClientName;
     connectionMode?: ConnectionMode;
     protocol?: ClientProtocol;
@@ -15,7 +15,12 @@ interface ApplyClientConfigParams {
     effortLevel?: string;
 }
 
-interface RestoreClientConfigParams {
+interface ApplyClientConfigParams {
+    client: ClientName;
+    backupId: number;
+}
+
+interface DeleteClientConfigBackupParams {
     client: ClientName;
     backupId: number;
 }
@@ -29,6 +34,7 @@ interface RenameClientConfigBackupParams {
 interface CreateClientConfigBackupParams {
     client: ClientName;
     name?: string;
+    enabled?: boolean;
 }
 
 interface ClientConfigStatusResponse {
@@ -46,6 +52,7 @@ interface ClientConfigStatus {
     backupCount: number;
     backups: ClientConfigBackupInfo[];
     activeBackupId?: number;
+    activeConfigModified: boolean;
     currentConfig: CurrentClientConfig | null;
     configPath: string;
     configPaths: string[];
@@ -75,6 +82,7 @@ interface ClientConfigBackupInfo {
     name: string;
     fileCount: number;
     createdAt: string;
+    enabled: boolean;
     config: CurrentClientConfig | null;
 }
 
@@ -97,7 +105,7 @@ interface ConfigAdapter {
     readonly configPaths: string[];
 
     getStatus(): Promise<ClientConfigStatus>;
-    apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus>;
+    buildConfigContent(params: CreateClientConfigParams): Promise<ClientConfigContent>;
     parseConfigContent(configContent: ClientConfigContent): Promise<CurrentClientConfig | null>;
     readConfigFiles(): Promise<ClientConfigContent>;
     restore(configContent: ClientConfigContent): Promise<ClientConfigStatus>;
@@ -113,12 +121,13 @@ export type {
     ConfigAdapter,
     ConnectionMode,
     CreateClientConfigBackupParams,
+    CreateClientConfigParams,
     CurrentClientConfig,
+    DeleteClientConfigBackupParams,
     FileSystemApi,
     GatewayUserInfo,
     PathApi,
     RenameClientConfigBackupParams,
-    RestoreClientConfigParams,
 };
 
 export { ClientName };

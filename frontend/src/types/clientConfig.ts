@@ -17,6 +17,7 @@ export interface ClientConfigStatus {
     backupCount: number;
     backups: ClientConfigBackupInfo[];
     activeBackupId?: number;
+    activeConfigModified: boolean;
     currentConfig: CurrentClientConfig | null;
     configPath: string;
     configPaths: string[];
@@ -46,6 +47,7 @@ export interface ClientConfigBackupInfo {
     name: string;
     fileCount: number;
     createdAt: string;
+    enabled: boolean;
     config: CurrentClientConfig | null;
 }
 
@@ -55,7 +57,7 @@ export interface ClientConfigStatusResponse {
     clients: ClientConfigStatus[];
 }
 
-export interface ApplyClientConfigRequest {
+export interface CreateClientConfigRequest {
     client: ClientName;
     connectionMode?: ClientConnectionMode;
     protocol?: ClientProtocol;
@@ -68,6 +70,7 @@ export interface ApplyClientConfigRequest {
 export interface CreateClientConfigBackupRequest {
     client: ClientName;
     name?: string;
+    enabled?: boolean;
 }
 
 export interface RenameClientConfigBackupRequest {
@@ -76,7 +79,12 @@ export interface RenameClientConfigBackupRequest {
     name: string;
 }
 
-export interface RestoreClientConfigRequest {
+export interface DeleteClientConfigBackupRequest {
+    client: ClientName;
+    backupId: number;
+}
+
+export interface ApplyClientConfigRequest {
     client: ClientName;
     backupId: number;
 }

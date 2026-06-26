@@ -8,10 +8,11 @@ import type {
     ClientName,
     ConfigAdapter,
     CreateClientConfigBackupParams,
+    CreateClientConfigParams,
+    DeleteClientConfigBackupParams,
     FileSystemApi,
     PathApi,
     RenameClientConfigBackupParams,
-    RestoreClientConfigParams,
 } from "./types";
 import ClaudeCodeConfigAdapter from "./claudeCodeConfigAdapter";
 import CodexConfigAdapter from "./codexConfigAdapter";
@@ -54,10 +55,36 @@ async function getAdapter(client: ClientName): Promise<ConfigAdapter> {
 }
 
 
-function formatBackupName(client: ClientName): string {
-    const date = new Date();
-    const timestamp = date.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
-    return `${client} ${timestamp}`;
+async function formatUniqueBackupName(client: ClientName, baseName: string): Promise<string> {
+    const records = await SgClientConfigBackup.query()
+        .where("client", client)
+        .get();
+    const existingNames = new Set(normalizeBackupRecords(records).map(record => String(record.name)));
+    if (!existingNames.has(baseName)) {
+        return baseName;
+    }
+
+    let index = 1;
+    while (existingNames.has(`${baseName}${index}`)) {
+        index += 1;
+    }
+
+    return `${baseName}${index}`;
+}
+
+
+function serializeConfigContent(configContent: Record<string, string> | null | undefined): string {
+    const normalized: Record<string, string> = {};
+    for (const key of Object.keys(configContent || {}).sort()) {
+        normalized[key] = String(configContent?.[key] ?? "");
+    }
+
+    return JSON.stringify(normalized);
+}
+
+
+function isEnabled(value: unknown): boolean {
+    return value === true || value === 1 || value === "1";
 }
 
 
@@ -68,6 +95,7 @@ async function toBackupInfo(record: any, adapter: ConfigAdapter): Promise<Client
         name: record.name,
         fileCount: Object.keys(record.configContent || {}).length,
         createdAt: String(record.created_at || record.createdAt || ""),
+        enabled: isEnabled(record.enabled),
         config: await adapter.parseConfigContent(record.configContent || {}),
     };
 }
@@ -107,18 +135,15 @@ async function enrichStatus(status: ClientConfigStatus, adapter: ConfigAdapter):
         .orderBy("id", "desc")
         .get();
 
-    const backups = await Promise.all(normalizeBackupRecords(records).map(record => toBackupInfo(record, adapter)));
+    const backupRecords = normalizeBackupRecords(records);
+    const backups = await Promise.all(backupRecords.map(record => toBackupInfo(record, adapter)));
+    const activeRecord = backupRecords.find(record => isEnabled(record.enabled));
+    const activeBackupId = activeRecord ? Number(activeRecord.id) : undefined;
 
-    let activeBackupId: number | undefined;
-    if (status.configured) {
+    let activeConfigModified = false;
+    if (activeRecord) {
         const currentContent = await adapter.readConfigFiles();
-        const currentContentStr = JSON.stringify(currentContent);
-        for (const record of records) {
-            if (JSON.stringify(record.configContent) === currentContentStr) {
-                activeBackupId = record.id;
-                break;
-            }
-        }
+        activeConfigModified = serializeConfigContent(activeRecord.configContent) !== serializeConfigContent(currentContent);
     }
 
     return {
@@ -127,6 +152,7 @@ async function enrichStatus(status: ClientConfigStatus, adapter: ConfigAdapter):
         backupCount: backups.length,
         backups,
         activeBackupId,
+        activeConfigModified,
     };
 }
 
@@ -151,7 +177,7 @@ async function getStatus(): Promise<ClientConfigStatusResponse> {
 }
 
 
-async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfigStatus> {
+async function createConfig(params: CreateClientConfigParams): Promise<ClientConfigStatus> {
     if (ormService.isWorker) {
         throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
     }
@@ -165,7 +191,7 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
     }
 
     const adapter = await getAdapter(params.client);
-    const status = await adapter.apply({
+    const configContent = await adapter.buildConfigContent({
         ...params,
         connectionMode: params.connectionMode || "gateway",
         protocol: params.protocol,
@@ -174,7 +200,14 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
         model: params.model?.trim() || "",
         effortLevel: params.effortLevel?.trim(),
     });
-    return await enrichStatus(status, adapter);
+    await SgClientConfigBackup.query().create({
+        client: params.client,
+        name: await formatUniqueBackupName(params.client, "未命名配置"),
+        configContent,
+        enabled: false,
+    });
+
+    return await enrichStatus(await adapter.getStatus(), adapter);
 }
 
 
@@ -187,9 +220,14 @@ async function createBackup(params: CreateClientConfigBackupParams): Promise<Cli
     const configContent = await adapter.readConfigFiles();
     const record = await SgClientConfigBackup.query().create({
         client: params.client,
-        name: params.name?.trim() || formatBackupName(params.client),
+        name: params.name?.trim() || await formatUniqueBackupName(params.client, "未命名配置"),
         configContent,
+        enabled: false,
     });
+
+    if (params.enabled) {
+        await enableBackup(params.client, record);
+    }
 
     return await toBackupInfo(record, adapter);
 }
@@ -220,7 +258,7 @@ async function renameBackup(params: RenameClientConfigBackupParams): Promise<Cli
 }
 
 
-async function restoreConfig(params: RestoreClientConfigParams): Promise<ClientConfigStatus> {
+async function deleteBackup(params: DeleteClientConfigBackupParams): Promise<ClientConfigStatus> {
     if (ormService.isWorker) {
         throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
     }
@@ -235,16 +273,48 @@ async function restoreConfig(params: RestoreClientConfigParams): Promise<ClientC
         throw new Error("Backup not found");
     }
 
-    return await enrichStatus(await adapter.restore(backup.configContent), adapter);
+    await backup.delete();
+    return await enrichStatus(await adapter.getStatus(), adapter);
+}
+
+
+async function enableBackup(client: ClientName, backup: SgClientConfigBackup): Promise<void> {
+    await SgClientConfigBackup.query()
+        .where("client", client)
+        .update({ enabled: false });
+    await backup.update({ enabled: true });
+    backup.enabled = true;
+}
+
+
+async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfigStatus> {
+    if (ormService.isWorker) {
+        throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
+    }
+
+    const adapter = await getAdapter(params.client);
+    const backup = await SgClientConfigBackup.query()
+        .where("id", params.backupId)
+        .where("client", params.client)
+        .first();
+
+    if (!backup) {
+        throw new Error("Backup not found");
+    }
+
+    const status = await adapter.restore(backup.configContent);
+    await enableBackup(params.client, backup);
+    return await enrichStatus(status, adapter);
 }
 
 
 export default {
     createBackup,
+    createConfig,
+    deleteBackup,
     getStatus,
     applyConfig,
     renameBackup,
-    restoreConfig,
 };
 
 export type {
@@ -252,4 +322,6 @@ export type {
     ClientConfigBackupInfo,
     ClientConfigStatus,
     ClientConfigStatusResponse,
+    DeleteClientConfigBackupParams,
+    CreateClientConfigParams,
 };

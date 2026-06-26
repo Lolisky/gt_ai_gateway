@@ -1,4 +1,4 @@
-import type { ApplyClientConfigParams, ClientConfigStatus, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigStatus, CreateClientConfigParams, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import { ClientName } from "../../constants";
@@ -9,7 +9,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
         super(fs, path, ClientName.CLAUDE_CODE, "Claude Code", path.join(homeDir, ".claude", "settings.json"));
     }
 
-    private buildBaseUrl(params: ApplyClientConfigParams): string {
+    private buildBaseUrl(params: CreateClientConfigParams): string {
         const url = params.gatewayUrl.replace(/\/+$/, "");
         if ((params.connectionMode || "gateway") === "vendor") {
             return url
@@ -39,7 +39,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
             connectionMode: gatewayUser ? "gateway" : "vendor",
             backendUrl,
             token,
-            model: config.model || "",
+            model: config.env?.ANTHROPIC_MODEL || config.env?.CLAUDE_CODE_SUBAGENT_MODEL || config.model || "",
             protocol: "anthropic",
             gatewayUser,
         };
@@ -69,6 +69,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
             backupExists: false,
             backupCount: 0,
             backups: [],
+            activeConfigModified: false,
             currentConfig,
             configPath: this.configPath,
             configPaths: this.configPaths,
@@ -77,7 +78,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
     }
 
 
-    async apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus> {
+    async buildConfigContent(params: CreateClientConfigParams): Promise<Record<string, string>> {
         if (!(await this.isInstalled())) {
             throw new Error("Claude Code config directory not found");
         }
@@ -88,10 +89,13 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
             ANTHROPIC_BASE_URL: this.buildBaseUrl(params),
             ANTHROPIC_AUTH_TOKEN: params.apiKey,
         };
+        
+        // Remove old deprecated configs
+        delete config.model;
+        delete config.env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY;
 
         if (params.model.trim()) {
             const model = params.model.trim();
-            config.model = model;
             config.env.ANTHROPIC_MODEL = model;
             config.env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
             config.env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
@@ -103,8 +107,9 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
             config.env.CLAUDE_CODE_EFFORT_LEVEL = params.effortLevel.trim();
         }
 
-        await this.writeConfigFile(`${JSON.stringify(config, null, 4)}\n`);
-        return await this.getStatus();
+        return {
+            [this.configPath]: `${JSON.stringify(config, null, 4)}\n`,
+        };
     }
 }
 

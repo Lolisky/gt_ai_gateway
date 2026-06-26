@@ -7,9 +7,9 @@ async function status(c: Context) {
 }
 
 
-async function apply(c: Context) {
+async function create(c: Context) {
     const body = await c.req.json();
-    return c.json(await clientConfigService.applyConfig(body));
+    return c.json(await clientConfigService.createConfig(body));
 }
 
 
@@ -25,16 +25,23 @@ async function renameBackup(c: Context) {
 }
 
 
-async function restore(c: Context) {
+async function deleteBackup(c: Context) {
     const body = await c.req.json();
-    return c.json(await clientConfigService.restoreConfig(body));
+    return c.json(await clientConfigService.deleteBackup(body));
+}
+
+
+async function apply(c: Context) {
+    const body = await c.req.json();
+    return c.json(await clientConfigService.applyConfig(body));
 }
 
 
 export default {
     backup,
+    create,
+    deleteBackup,
     renameBackup,
     status,
     apply,
-    restore,
 };

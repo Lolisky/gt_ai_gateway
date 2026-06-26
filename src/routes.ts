@@ -87,10 +87,11 @@ app.get("/update.json", authMiddleware.requireAdmin, systemController.checkUpdat
 app.get("/config.json", authMiddleware.requireAdmin, configController.getConfig);
 app.put("/config.json", authMiddleware.requireAdmin, configController.updateConfig);
 app.get("/client-config/status.json", authMiddleware.requireAdmin, clientConfigController.status);
-app.post("/client-config/apply.json", authMiddleware.requireAdmin, clientConfigController.apply);
+app.post("/client-config/create.json", authMiddleware.requireAdmin, clientConfigController.create);
 app.post("/client-config/backup.json", authMiddleware.requireAdmin, clientConfigController.backup);
 app.post("/client-config/backup/rename.json", authMiddleware.requireAdmin, clientConfigController.renameBackup);
-app.post("/client-config/restore.json", authMiddleware.requireAdmin, clientConfigController.restore);
+app.post("/client-config/backup/delete.json", authMiddleware.requireAdmin, clientConfigController.deleteBackup);
+app.post("/client-config/apply.json", authMiddleware.requireAdmin, clientConfigController.apply);
 
 // Vendor (需要管理员权限)
 app.get("/vendor/preset-urls.json", authMiddleware.requireAdmin, vendorController.getPresetUrls);

@@ -46,6 +46,15 @@
                                     </a-tag>
                                     <div style="flex: 1"></div>
                                     <a-button
+                                        size="small"
+                                        style="font-size: 13px;"
+                                        :disabled="!client.installed"
+                                        :loading="backingUpClient === client.client"
+                                        @click="backupCurrentConfig(client.client)"
+                                    >
+                                        <CopyOutlined /> 从本地配置新建
+                                    </a-button>
+                                    <a-button
                                         type="primary"
                                         size="small"
                                         style="font-size: 13px;"
@@ -57,76 +66,6 @@
                                     </a-button>
                                 </div>
                                 <div class="config-row-list">
-                                    <div class="config-row current-config-row">
-                                        <CheckCircleFilled class="current-config-icon" />
-                                        <div class="config-row-content">
-                                            <div class="config-row-name config-row-name-with-action">
-                                                <span>{{ getCurrentConfigName(client) }}</span>
-                                            </div>
-                                            <template v-if="client.currentConfig">
-                                                <div class="config-summary-line">
-                                                    <div v-if="client.currentConfig.model" class="config-flow">
-                                                        <a-tag color="purple" class="merged-mode-tag">模型</a-tag>
-                                                        <span class="model-text">{{ client.currentConfig.model }}</span>
-                                                    </div>
-                                                    <div class="config-flow">
-                                                        <a-tag :color="getConnectionModeColor(client.currentConfig.connectionMode)" class="merged-mode-tag">
-                                                            {{ getConnectionModeLabel(client.currentConfig.connectionMode) }}
-                                                        </a-tag>
-                                                        <template v-if="isGatewayConfig(client.currentConfig)">
-                                                            <span>🤖</span>
-                                                            <ArrowRightOutlined class="flow-arrow" />
-                                                            <img src="/favicon.svg" class="flow-logo" alt="Gateway" />
-                                                            <ArrowRightOutlined class="flow-arrow" />
-                                                            <span>☁️</span>
-                                                        </template>
-                                                        <template v-else>
-                                                            <span>🤖</span>
-                                                            <ArrowRightOutlined class="flow-arrow" />
-                                                            <span>☁️</span>
-                                                        </template>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <div v-else class="config-summary-line">
-                                                <a-tag color="default">未配置</a-tag>
-                                                <span class="config-muted">未检测到有效配置</span>
-                                            </div>
-                                        </div>
-                                        <div class="config-row-actions">
-                                            <a-button
-                                                size="small"
-                                                style="font-size: 13px;"
-                                                :disabled="!client.currentConfig"
-                                                @click="openDetailDialog(client, client.currentConfig, getCurrentConfigName(client))"
-                                            >
-                                                <InfoCircleOutlined />
-                                                查看
-                                            </a-button>
-                                            <a-button
-                                                type="primary"
-                                                size="small"
-                                                style="font-size: 13px;"
-                                                :disabled="!client.installed"
-                                                :loading="savingClient === client.client"
-                                                @click="openConfigDialog(client)"
-                                            >
-                                                <ToolOutlined />
-                                                修改
-                                            </a-button>
-                                            <a-button
-                                                size="small"
-                                                style="font-size: 13px;"
-                                                :disabled="!client.installed"
-                                                :loading="backingUpClient === client.client"
-                                                @click="backupCurrentConfig(client.client)"
-                                            >
-                                                <CopyOutlined />
-                                                复制
-                                            </a-button>
-                                        </div>
-                                    </div>
-
                                     <div
                                         v-for="backup in client.backups"
                                         :key="backup.id"
@@ -135,15 +74,33 @@
                                         <div class="icon-placeholder" style="display: flex; align-items: center; justify-content: center;" v-if="restoringBackupId === backup.id">
                                             <a-spin size="small" />
                                         </div>
-                                        <CheckCircleFilled v-else-if="client.activeBackupId === backup.id" class="current-config-icon" />
-                                        <div
+                                        <button
+                                            v-else-if="backup.enabled"
+                                            type="button"
+                                            class="check-state-button checked-check-button"
+                                            disabled
+                                            aria-label="当前启用配置"
+                                        >
+                                            <CheckCircleFilled class="current-config-icon" />
+                                        </button>
+                                        <button
                                             v-else
-                                            class="empty-check-circle"
-                                            @click="restoreConfig(client.client, backup.id)"
-                                        ></div>
+                                            type="button"
+                                            class="check-state-button empty-check-circle"
+                                            aria-label="启用该配置"
+                                            @click="applyConfig(client.client, backup.id)"
+                                        ></button>
                                         <div class="config-row-content">
                                             <div class="config-row-name config-row-name-with-action">
                                                 <span>{{ backup.name }}</span>
+                                                <a-tag v-if="backup.enabled" color="blue" class="current-config-tag">启用</a-tag>
+                                                <a-tag
+                                                    v-if="backup.enabled && client.activeConfigModified"
+                                                    color="warning"
+                                                    class="current-config-tag"
+                                                >
+                                                    被修改
+                                                </a-tag>
                                                 <a-button
                                                     type="text"
                                                     size="small"
@@ -191,11 +148,24 @@
                                                 <InfoCircleOutlined />
                                                 查看
                                             </a-button>
-
+                                            <a-button
+                                                danger
+                                                size="small"
+                                                style="font-size: 13px;"
+                                                :loading="deletingBackupId === backup.id"
+                                                @click="deleteConfig(client.client, backup)"
+                                            >
+                                                <DeleteOutlined />
+                                                删除
+                                            </a-button>
                                         </div>
                                     </div>
 
-
+                                    <a-empty
+                                        v-if="client.backups.length === 0"
+                                        description="暂无配置"
+                                        class="config-empty-state"
+                                    />
                                 </div>
                                 <div v-if="client.message" class="client-message">{{ client.message }}</div>
                             </div>
@@ -504,13 +474,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue/es';
-import { ArrowRightOutlined, CheckCircleFilled, CopyOutlined, EditOutlined, InfoCircleOutlined, ReloadOutlined, ToolOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { ArrowRightOutlined, CheckCircleFilled, CopyOutlined, DeleteOutlined, EditOutlined, InfoCircleOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import {
     applyClientConfig,
+    createClientConfig,
     createClientConfigBackup,
+    deleteClientConfigBackup,
     getClientConfigStatus,
     renameClientConfigBackup,
-    restoreClientConfig,
 } from '@/api/clientConfig';
 import { ClientName } from '@/types/clientConfig';
 import type {
@@ -535,6 +506,7 @@ const available = ref(true);
 const unavailableReason = ref('');
 const savingClient = ref<ClientName | ''>('');
 const backingUpClient = ref<ClientName | ''>('');
+const deletingBackupId = ref<number | null>(null);
 const restoringBackupId = ref<number | null>(null);
 const renamingBackupId = ref<number | null>(null);
 const clients = ref<ClientConfigStatus[]>([]);
@@ -710,10 +682,10 @@ async function submitConfig(): Promise<void> {
 
     savingClient.value = configForm.client;
     try {
-        const status = await applyClientConfig(request);
+        const status = await createClientConfig(request);
         updateClientStatus(status);
         configDialogVisible.value = false;
-        message.success(`${status.displayName} 已配置`);
+        message.success(`${status.displayName} 配置已创建`);
     } finally {
         savingClient.value = '';
     }
@@ -941,16 +913,6 @@ function getVendorTypeTagStyle(type?: VendorType) {
     return undefined;
 }
 
-function getCurrentConfigName(client: ClientConfigStatus): string {
-    if (client.activeBackupId) {
-        const activeBackup = client.backups.find(b => b.id === client.activeBackupId);
-        if (activeBackup) {
-            return activeBackup.name;
-        }
-    }
-    return `${client.displayName} 当前生效配置`;
-}
-
 async function openDetailDialog(client: ClientConfigStatus, config: CurrentClientConfig | null, name: string): Promise<void> {
     await loadDialogOptions();
     detailClientName.value = client.displayName;
@@ -973,7 +935,7 @@ async function backupCurrentConfig(client: ClientName, showSuccess = true): Prom
             selectedClient.value = target;
         }
         if (showSuccess) {
-            message.success(`${target.displayName} 当前配置已保存`);
+            message.success(`${target.displayName} 已从本地配置新建`);
         }
     } finally {
         backingUpClient.value = '';
@@ -1013,7 +975,30 @@ async function submitRenameConfig(): Promise<void> {
     }
 }
 
-function restoreConfig(client: ClientName, backupId?: number): void {
+function deleteConfig(client: ClientName, backup: ClientConfigBackupInfo): void {
+    Modal.confirm({
+        title: `删除配置「${backup.name}」？`,
+        content: backup.enabled
+            ? '该配置当前处于启用状态。删除后本地客户端配置文件不会被修改，但列表中将不再有启用配置。'
+            : '删除后不可恢复。',
+        okText: '删除',
+        okType: 'danger',
+        cancelText: '取消',
+        async onOk() {
+            deletingBackupId.value = backup.id;
+            try {
+                const status = await deleteClientConfigBackup({ client, backupId: backup.id });
+                updateClientStatus(status);
+                message.success('配置已删除');
+            } finally {
+                deletingBackupId.value = null;
+            }
+        },
+    });
+}
+
+
+function applyConfig(client: ClientName, backupId?: number): void {
     const target = clients.value.find(item => item.client === client);
     const selectedBackup = target?.backups.find(item => item.id === backupId) || target?.backups[0];
     if (!selectedBackup) {
@@ -1030,7 +1015,7 @@ function restoreConfig(client: ClientName, backupId?: number): void {
         async onOk() {
             restoringBackupId.value = selectedBackup.id;
             try {
-                const status = await restoreClientConfig({ client, backupId: selectedBackup.id });
+                const status = await applyClientConfig({ client, backupId: selectedBackup.id });
                 updateClientStatus(status);
                 message.success(`${status.displayName} 已切换`);
             } finally {
@@ -1176,19 +1161,47 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     height: 20px;
 }
 
-.empty-check-circle {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 1px solid #d9d9d9;
+.check-state-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
     cursor: pointer;
-    background-color: #fff;
-    transition: all 0.3s;
-    flex-shrink: 0;
+    display: inline-flex;
+    height: 32px;
+    justify-content: center;
+    margin: -6px;
+    padding: 6px;
+    width: 32px;
 }
 
-.empty-check-circle:hover {
+.check-state-button:disabled {
+    cursor: default;
+}
+
+.empty-check-circle {
+    appearance: none;
+    background-color: #fff;
+    border: 0;
+    cursor: pointer;
+}
+
+.empty-check-circle::before {
+    background-color: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 50%;
+    content: "";
+    display: block;
+    width: 20px;
+    height: 20px;
+    transition: all 0.3s;
+}
+
+.empty-check-circle:hover::before {
     border-color: #1677ff;
+}
+
+.checked-check-button {
+    color: #1677ff;
 }
 
 .config-row-name {
@@ -1295,6 +1308,10 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
 
 .empty-state {
     margin-top: 36px;
+}
+
+.config-empty-state {
+    padding: 24px 0;
 }
 
 .config-form {

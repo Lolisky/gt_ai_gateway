@@ -13,6 +13,7 @@ class SgClientConfigBackup extends Model {
     client!: ClientName;
     name!: string;
     configContent!: ClientConfigContent;
+    enabled!: boolean;
 
     casts = {
         configContent: "json",

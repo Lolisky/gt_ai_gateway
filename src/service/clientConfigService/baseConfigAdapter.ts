@@ -1,5 +1,4 @@
 import type {
-    ApplyClientConfigParams,
     ClientConfigContent,
     ClientConfigStatus,
     ClientName,
@@ -70,9 +69,6 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
 
 
     abstract getStatus(): Promise<ClientConfigStatus>;
-
-
-    abstract apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus>;
 
 
     async restore(configContent: ClientConfigContent): Promise<ClientConfigStatus> {

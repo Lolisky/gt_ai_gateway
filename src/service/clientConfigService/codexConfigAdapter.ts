@@ -1,4 +1,4 @@
-import type { ApplyClientConfigParams, ClientConfigStatus, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigStatus, CreateClientConfigParams, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import tomlUtil from "../../util/tomlUtil";
@@ -14,7 +14,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         ]);
     }
 
-    private buildBaseUrl(params: ApplyClientConfigParams): string {
+    private buildBaseUrl(params: CreateClientConfigParams): string {
         const url = params.gatewayUrl.replace(/\/+$/, "");
         if ((params.connectionMode || "gateway") === "vendor") {
             return url
@@ -75,6 +75,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
             backupExists: false,
             backupCount: 0,
             backups: [],
+            activeConfigModified: false,
             currentConfig,
             configPath: this.configPath,
             configPaths: this.configPaths,
@@ -83,7 +84,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
     }
 
 
-    async apply(params: ApplyClientConfigParams): Promise<ClientConfigStatus> {
+    async buildConfigContent(params: CreateClientConfigParams): Promise<Record<string, string>> {
         if (!(await this.isInstalled())) {
             throw new Error("Codex config directory not found");
         }
@@ -102,8 +103,9 @@ class CodexConfigAdapter extends BaseConfigAdapter {
             experimental_bearer_token: tomlUtil.buildTomlString(params.apiKey),
         });
 
-        await this.writeConfigFile(`${content.trim()}\n`);
-        return await this.getStatus();
+        return {
+            [this.configPath]: `${content.trim()}\n`,
+        };
     }
 }
 
