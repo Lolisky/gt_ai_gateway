@@ -229,6 +229,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
     const adapter = await getAdapter(params.client);
     const existingContent = await adapter.readConfig();
     const fields: ClientConfigContent = {
+        version: "v1",
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl.trim(),
         apiKey: params.apiKey.trim(),
@@ -321,6 +322,7 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
     }
 
     const fields: ClientConfigContent = {
+        version: "v1",
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl.trim(),
         apiKey: params.apiKey.trim(),

@@ -32,6 +32,7 @@ export interface ClientConfigStatus {
 }
 
 export interface CurrentClientConfig {
+    version?: string;
     connectionMode: ClientConnectionMode;
     gatewayUrl: string;
     apiKey: string;
@@ -64,6 +65,7 @@ export interface ClientConfigStatusResponse {
 }
 
 export interface CreateClientConfigRequest {
+    version?: string;
     client: ClientName;
     connectionMode?: ClientConnectionMode;
     gatewayUrl: string;

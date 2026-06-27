@@ -3,6 +3,7 @@ import { inspect, InspectOptions } from "util";
 import { ClientName, ConnectionMode } from "../constants";
 
 interface ClientConfigContent {
+    version?: string;
     connectionMode?: ConnectionMode;
     gatewayUrl: string;
     apiKey: string;

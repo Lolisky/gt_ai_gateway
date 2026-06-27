@@ -49,6 +49,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         }
 
         return {
+            version: "v1",
             connectionMode: this.isGatewayUrl(backendUrl) ? ConnectionMode.GATEWAY : ConnectionMode.VENDOR,
             gatewayUrl: backendUrl,
             apiKey: token,

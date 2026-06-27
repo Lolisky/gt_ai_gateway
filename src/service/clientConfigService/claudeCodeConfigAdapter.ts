@@ -39,6 +39,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
         }
 
         return {
+            version: "v1",
             connectionMode: this.isGatewayUrl(config.env?.ANTHROPIC_BASE_URL) ? ConnectionMode.GATEWAY : ConnectionMode.VENDOR, // Accurate deduction by host and port
             gatewayUrl: backendUrl,
             apiKey: token,
