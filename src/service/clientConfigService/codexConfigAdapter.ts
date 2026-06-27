@@ -1,4 +1,4 @@
-import type { ClientConfigFileSystemContent, ClientConfigFields, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigFileSystemContent, ClientConfigContent, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import tomlUtil from "../../util/tomlUtil";
 import { ClientName, ConnectionMode, ApiFormat } from "../../constants";
@@ -21,7 +21,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         this.authPath = this.configPaths[1];
     }
 
-    private buildBaseUrl(fields: ClientConfigFields): string {
+    private buildBaseUrl(fields: ClientConfigContent): string {
         const url = fields.gatewayUrl.replace(/\/+$/, "");
         if ((fields.connectionMode || ConnectionMode.GATEWAY) === ConnectionMode.VENDOR) {
             return url
@@ -34,7 +34,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         return `${url}${this.defaultGatewaySuffix}`;
     }
 
-    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigFields | null {
+    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigContent | null {
         const content = configContent[this.configPaths[0]] || "";
         if (!content) {
             return null;
@@ -56,7 +56,7 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         };
     }
 
-    patchConfigContent(configContent: ClientConfigFileSystemContent, fields: ClientConfigFields): ClientConfigFileSystemContent {
+    patchConfigContent(configContent: ClientConfigFileSystemContent, fields: ClientConfigContent): ClientConfigFileSystemContent {
         let content = configContent[this.configPaths[0]] || "";
         content = tomlUtil.upsertRootTomlValue(content, "model_provider", tomlUtil.buildTomlString("gt_ai_gateway"));
 

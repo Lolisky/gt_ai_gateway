@@ -1,5 +1,5 @@
 import type {
-    ClientConfigFields,
+    ClientConfigContent,
     ClientConfigFileSystemContent,
     ApiFormat,
     ClientName,
@@ -21,8 +21,8 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     abstract readonly defaultGatewaySuffix: string;
     readonly configPaths: string[];
 
-    abstract parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigFields | null;
-    abstract patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigFields): ClientConfigFileSystemContent;
+    abstract parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigContent | null;
+    abstract patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigContent): ClientConfigFileSystemContent;
 
     constructor(
         fs: FileSystemApi,

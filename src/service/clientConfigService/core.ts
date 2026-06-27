@@ -15,7 +15,7 @@ import type {
     RenameClientConfigBackupParams,
     UpdateClientConfigBackupParams,
     AdapterConfigStatus,
-    ClientConfigFields,
+    ClientConfigContent,
     CurrentClientConfigWithUser,
 } from "./types";
 import ClaudeCodeConfigAdapter from "./claudeCodeConfigAdapter";
@@ -84,7 +84,7 @@ function isEnabled(value: unknown): boolean {
 }
 
 
-async function enrichGatewayUser(config: ClientConfigFields | null): Promise<CurrentClientConfigWithUser | null> {
+async function enrichGatewayUser(config: ClientConfigContent | null): Promise<CurrentClientConfigWithUser | null> {
     if (!config) {
         return null;
     }
@@ -97,10 +97,10 @@ async function enrichGatewayUser(config: ClientConfigFields | null): Promise<Cur
 }
 
 
-function extractFieldsFromBackup(backupContent: any, adapter: ConfigAdapter): ClientConfigFields | null {
+function extractFieldsFromBackup(backupContent: any, adapter: ConfigAdapter): ClientConfigContent | null {
     if (!backupContent || typeof backupContent !== "object") return null;
     if ("gatewayUrl" in backupContent || "connectionMode" in backupContent) {
-        return backupContent as ClientConfigFields;
+        return backupContent as ClientConfigContent;
     }
     return adapter.parseConfigContent(backupContent);
 }
@@ -167,7 +167,7 @@ async function enrichStatus(adapterStatus: AdapterConfigStatus, adapter: ConfigA
         const currentConfig = adapter.parseConfigContent(currentContent);
 
         if (activeConfig && currentConfig) {
-            const serializeRelevant = (c: ClientConfigFields) => JSON.stringify({
+            const serializeRelevant = (c: ClientConfigContent) => JSON.stringify({
                 connectionMode: c.connectionMode,
                 gatewayUrl: c.gatewayUrl,
                 apiKey: c.apiKey,
@@ -228,7 +228,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
 
     const adapter = await getAdapter(params.client);
     const existingContent = await adapter.readConfig();
-    const fields: ClientConfigFields = {
+    const fields: ClientConfigContent = {
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl.trim(),
         apiKey: params.apiKey.trim(),
@@ -320,7 +320,7 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         throw new Error("Backup not found");
     }
 
-    const fields: ClientConfigFields = {
+    const fields: ClientConfigContent = {
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl.trim(),
         apiKey: params.apiKey.trim(),

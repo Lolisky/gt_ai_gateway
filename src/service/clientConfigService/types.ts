@@ -1,7 +1,7 @@
 import { ClientName, ConnectionMode, ApiFormat } from "../../constants";
-import type { ClientConfigContent, ClientConfigFields } from "../../model/sgClientConfig";
+import type { ClientConfigContent } from "../../model/sgClientConfig";
 
-interface CreateClientConfigParams extends ClientConfigFields {
+interface CreateClientConfigParams extends ClientConfigContent {
     client: ClientName;
 }
 
@@ -43,7 +43,7 @@ interface AdapterConfigStatus {
     protocol: ApiFormat;
     installed: boolean;
     configured: boolean;
-    currentConfig: ClientConfigFields | null;
+    currentConfig: ClientConfigContent | null;
     defaultGatewaySuffix: string;
     configPaths: string[];
     message?: string;
@@ -58,7 +58,7 @@ interface ClientConfigStatus extends AdapterConfigStatus {
     currentConfig: CurrentClientConfigWithUser | null;
 }
 
-interface CurrentClientConfig extends ClientConfigFields {
+interface CurrentClientConfig extends ClientConfigContent {
     configPaths: string[];
 }
 
@@ -109,8 +109,8 @@ interface ConfigAdapter {
     isInstalled(): Promise<boolean>;
     readConfig(): Promise<ClientConfigFileSystemContent>;
     writeConfig(content: ClientConfigFileSystemContent): Promise<void>;
-    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigFields | null;
-    patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigFields): ClientConfigFileSystemContent;
+    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigContent | null;
+    patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigContent): ClientConfigFileSystemContent;
 }
 
 export type {
@@ -118,7 +118,6 @@ export type {
     ApplyClientConfigParams,
     ClientConfigBackupInfo,
     ClientConfigContent,
-    ClientConfigFields,
     ClientConfigStatus,
     ClientConfigStatusResponse,
     ClientConfigFileSystemContent,

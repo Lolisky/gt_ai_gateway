@@ -1,4 +1,4 @@
-import type { ClientConfigFileSystemContent, ClientConfigFields, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigFileSystemContent, ClientConfigContent, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import { ClientName, ConnectionMode, ApiFormat } from "../../constants";
@@ -12,7 +12,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
         super(fs, path, ClientName.CLAUDE_CODE, "Claude Code", [path.join(homeDir, ".claude", "settings.json")]);
     }
 
-    private buildBaseUrl(fields: ClientConfigFields): string {
+    private buildBaseUrl(fields: ClientConfigContent): string {
         const url = fields.gatewayUrl.replace(/\/+$/, "");
         if ((fields.connectionMode || ConnectionMode.GATEWAY) === ConnectionMode.VENDOR) {
             return url
@@ -25,7 +25,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
         return `${url}${this.defaultGatewaySuffix}`;
     }
 
-    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigFields | null {
+    parseConfigContent(configContent: ClientConfigFileSystemContent): ClientConfigContent | null {
         const content = configContent[this.configPaths[0]] || "";
         if (!content) {
             return null;
@@ -47,7 +47,7 @@ class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
         };
     }
 
-    patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigFields): ClientConfigFileSystemContent {
+    patchConfigContent(content: ClientConfigFileSystemContent, fields: ClientConfigContent): ClientConfigFileSystemContent {
         const oldContent = content[this.configPaths[0]] || "";
         const config = configAdapterUtils.parseJsonConfig(oldContent);
         config.env = {

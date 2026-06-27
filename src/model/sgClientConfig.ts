@@ -2,7 +2,7 @@ import { Model } from "sutando";
 import { inspect, InspectOptions } from "util";
 import { ClientName, ConnectionMode } from "../constants";
 
-interface ClientConfigFields {
+interface ClientConfigContent {
     connectionMode?: ConnectionMode;
     gatewayUrl: string;
     apiKey: string;
@@ -10,10 +10,6 @@ interface ClientConfigFields {
     effortLevel?: string;
     [key: string]: any;
 }
-
-type ClientConfigContent = Record<string, any>;
-
-
 class SgClientConfig extends Model {
     table = "client_config";
 
@@ -38,4 +34,4 @@ class SgClientConfig extends Model {
 
 
 export default SgClientConfig;
-export type { ClientConfigContent, ClientConfigFields, ConnectionMode };
+export type { ClientConfigContent, ConnectionMode };
