@@ -13,7 +13,9 @@ import type {
     FileSystemApi,
     PathApi,
     RenameClientConfigBackupParams,
-    CurrentClientConfig,
+    AdapterConfigStatus,
+    ClientConfigFields,
+    CurrentClientConfigWithUser,
 } from "./types";
 import ClaudeCodeConfigAdapter from "./claudeCodeConfigAdapter";
 import CodexConfigAdapter from "./codexConfigAdapter";
@@ -90,6 +92,19 @@ function isEnabled(value: unknown): boolean {
 }
 
 
+async function enrichGatewayUser(config: ClientConfigFields | null): Promise<CurrentClientConfigWithUser | null> {
+    if (!config) {
+        return null;
+    }
+    const gatewayUser = await configAdapterUtils.findGatewayUserByToken(config.apiKey);
+    return {
+        ...config,
+        configPath: "",
+        gatewayUser,
+    };
+}
+
+
 async function toBackupInfo(record: any, adapter: ConfigAdapter): Promise<ClientConfigBackupInfo> {
     const parsedConfig = await adapter.parseConfigContent(record.configContent || {});
     return {
@@ -99,7 +114,7 @@ async function toBackupInfo(record: any, adapter: ConfigAdapter): Promise<Client
         fileCount: Object.keys(record.configContent || {}).length,
         createdAt: String(record.created_at || record.createdAt || ""),
         enabled: isEnabled(record.enabled),
-        config: await configAdapterUtils.enrichGatewayUser(parsedConfig),
+        config: await enrichGatewayUser(parsedConfig),
         configContent: typeof record.configContent === "string" ? JSON.parse(record.configContent) : record.configContent || {},
     };
 }
@@ -133,9 +148,9 @@ async function getBackups(client: ClientName, adapter: ConfigAdapter): Promise<C
 }
 
 
-async function enrichStatus(status: ClientConfigStatus, adapter: ConfigAdapter): Promise<ClientConfigStatus> {
+async function enrichStatus(adapterStatus: AdapterConfigStatus, adapter: ConfigAdapter): Promise<ClientConfigStatus> {
     const records = await SgClientConfigBackup.query()
-        .where("client", status.client)
+        .where("client", adapterStatus.client)
         .orderBy("id", "desc")
         .get();
 
@@ -146,15 +161,15 @@ async function enrichStatus(status: ClientConfigStatus, adapter: ConfigAdapter):
 
     let activeConfigModified = false;
     if (activeRecord) {
-        const currentContent = await adapter.readConfigFiles();
-        const activeConfig = await adapter.parseConfigContent(activeRecord.configContent);
-        const currentConfig = await adapter.parseConfigContent(currentContent);
+        const currentContent = await adapter.readConfig();
+        const activeConfig = adapter.parseConfigContent(activeRecord.configContent);
+        const currentConfig = adapter.parseConfigContent(currentContent);
 
         if (activeConfig && currentConfig) {
-            const serializeRelevant = (c: CurrentClientConfig) => JSON.stringify({
+            const serializeRelevant = (c: ClientConfigFields) => JSON.stringify({
                 connectionMode: c.connectionMode,
-                backendUrl: c.backendUrl,
-                token: c.token,
+                gatewayUrl: c.gatewayUrl,
+                apiKey: c.apiKey,
                 model: c.model,
                 protocol: c.protocol,
             });
@@ -164,8 +179,11 @@ async function enrichStatus(status: ClientConfigStatus, adapter: ConfigAdapter):
         }
     }
 
+    const currentConfigWithUser = await enrichGatewayUser(adapterStatus.currentConfig);
+
     return {
-        ...status,
+        ...adapterStatus,
+        currentConfig: currentConfigWithUser,
         backupExists: backups.length > 0,
         backupCount: backups.length,
         backups,
@@ -185,8 +203,10 @@ async function getStatus(): Promise<ClientConfigStatusResponse> {
     }
 
     const adapters = await getAdapters();
+    const { fs } = await loadNodeApis();
     const clients = await Promise.all(adapters.map(async (adapter) => {
-        return await enrichStatus(await adapter.getStatus(), adapter);
+        const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+        return await enrichStatus(adapterStatus, adapter);
     }));
     return {
         available: true,
@@ -209,8 +229,8 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
     }
 
     const adapter = await getAdapter(params.client);
-    const configContent = await adapter.buildConfigContent({
-        ...params,
+    const existingContent = await adapter.readConfig();
+    const configContent = adapter.patchConfigContent(existingContent, {
         connectionMode: params.connectionMode || "gateway",
         protocol: params.protocol,
         gatewayUrl: params.gatewayUrl.trim(),
@@ -218,6 +238,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
         model: params.model?.trim() || "",
         effortLevel: params.effortLevel?.trim(),
     });
+    
     await SgClientConfigBackup.query().create({
         client: params.client,
         name: await formatUniqueBackupName(params.client, "未命名配置"),
@@ -225,7 +246,9 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
         enabled: false,
     });
 
-    return await enrichStatus(await adapter.getStatus(), adapter);
+    const { fs } = await loadNodeApis();
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    return await enrichStatus(adapterStatus, adapter);
 }
 
 
@@ -235,7 +258,7 @@ async function createBackup(params: CreateClientConfigBackupParams): Promise<Cli
     }
 
     const adapter = await getAdapter(params.client);
-    const configContent = await adapter.readConfigFiles();
+    const configContent = await adapter.readConfig();
     const record = await SgClientConfigBackup.query().create({
         client: params.client,
         name: params.name?.trim() || await formatUniqueBackupName(params.client, "未命名配置"),
@@ -299,8 +322,7 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         throw new Error("Backup not found");
     }
 
-    const configContent = await adapter.buildConfigContent({
-        ...params,
+    const configContent = adapter.patchConfigContent(backup.configContent, {
         connectionMode: params.connectionMode || "gateway",
         protocol: params.protocol,
         gatewayUrl: params.gatewayUrl.trim(),
@@ -314,10 +336,12 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
 
     if (backup.enabled) {
         // If the backup being updated is currently enabled, apply changes to local config immediately
-        await adapter.restore(backup.configContent);
+        await adapter.writeConfig(backup.configContent);
     }
 
-    return await enrichStatus(await adapter.getStatus(), adapter);
+    const { fs } = await loadNodeApis();
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    return await enrichStatus(adapterStatus, adapter);
 }
 
 
@@ -337,7 +361,9 @@ async function deleteBackup(params: DeleteClientConfigBackupParams): Promise<Cli
     }
 
     await backup.delete();
-    return await enrichStatus(await adapter.getStatus(), adapter);
+    const { fs } = await loadNodeApis();
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    return await enrichStatus(adapterStatus, adapter);
 }
 
 
@@ -365,9 +391,11 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
         throw new Error("Backup not found");
     }
 
-    const status = await adapter.restore(backup.configContent);
+    await adapter.writeConfig(backup.configContent);
     await enableBackup(params.client, backup);
-    return await enrichStatus(status, adapter);
+    const { fs } = await loadNodeApis();
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    return await enrichStatus(adapterStatus, adapter);
 }
 
 

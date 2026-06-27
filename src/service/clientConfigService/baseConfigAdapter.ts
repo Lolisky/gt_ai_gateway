@@ -1,6 +1,6 @@
 import type {
     ClientConfigContent,
-    ClientConfigStatus,
+    ClientConfigFields,
     ClientName,
     ConfigAdapter,
     FileSystemApi,
@@ -41,22 +41,8 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     }
 
 
-    protected async readConfigFile(): Promise<string> {
-        if (!(await configAdapterUtils.pathExists(this.fs, this.configPath))) {
-            return "";
-        }
 
-        return await this.fs.readFile(this.configPath, "utf-8");
-    }
-
-
-    protected async writeConfigFile(content: string): Promise<void> {
-        await this.fs.mkdir(this.path.dirname(this.configPath), { recursive: true });
-        await this.fs.writeFile(this.configPath, content, "utf-8");
-    }
-
-
-    async readConfigFiles(): Promise<ClientConfigContent> {
+    async readConfig(): Promise<ClientConfigContent> {
         const configContent: ClientConfigContent = {};
 
         for (const filePath of this.configPaths) {
@@ -69,10 +55,7 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     }
 
 
-    abstract getStatus(): Promise<ClientConfigStatus>;
-
-
-    async restore(configContent: ClientConfigContent): Promise<ClientConfigStatus> {
+    async writeConfig(configContent: ClientConfigContent): Promise<void> {
         for (const [filePath, content] of Object.entries(configContent)) {
             if (!this.configPaths.includes(filePath)) {
                 throw new Error(`Unsupported config file path: ${filePath}`);
@@ -89,8 +72,6 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
                 }
             }
         }
-
-        return await this.getStatus();
     }
 }
 

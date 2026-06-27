@@ -1,5 +1,5 @@
 import { SgUser } from "../../model/sgUser";
-import type { ConfigAdapter, CurrentClientConfig, CurrentClientConfigWithUser, FileSystemApi, GatewayUserInfo, ClientConfigStatus } from "./types";
+import type { ConfigAdapter, FileSystemApi, GatewayUserInfo, AdapterConfigStatus } from "./types";
 
 
 async function pathExists(fs: FileSystemApi, path: string): Promise<boolean> {
@@ -51,27 +51,16 @@ async function findGatewayUserByToken(token: string): Promise<GatewayUserInfo | 
     };
 }
 
-async function enrichGatewayUser(config: CurrentClientConfig | null): Promise<CurrentClientConfigWithUser | null> {
-    if (!config) {
-        return null;
-    }
-    const gatewayUser = await findGatewayUserByToken(config.token);
-    return {
-        ...config,
-        gatewayUser,
-    };
-}
 
-async function buildClientStatus(adapter: ConfigAdapter, fs: FileSystemApi): Promise<ClientConfigStatus> {
+async function buildClientStatus(adapter: ConfigAdapter, fs: FileSystemApi): Promise<AdapterConfigStatus> {
     const installed = await adapter.isInstalled();
     let configured = false;
     let message: string | undefined;
-    let currentConfig: CurrentClientConfigWithUser | null = null;
+    let currentConfig = null;
 
     if (installed && await pathExists(fs, adapter.configPath)) {
         try {
-            const rawConfig = await adapter.parseConfigContent(await adapter.readConfigFiles());
-            currentConfig = await enrichGatewayUser(rawConfig);
+            currentConfig = adapter.parseConfigContent(await adapter.readConfig());
             configured = Boolean(currentConfig);
         } catch (error) {
             message = `配置文件解析失败: ${String(error)}`;
@@ -84,10 +73,6 @@ async function buildClientStatus(adapter: ConfigAdapter, fs: FileSystemApi): Pro
         defaultGatewaySuffix: adapter.defaultGatewaySuffix,
         installed,
         configured,
-        backupExists: false,
-        backupCount: 0,
-        backups: [],
-        activeConfigModified: false,
         currentConfig,
         configPath: adapter.configPath,
         configPaths: adapter.configPaths,
@@ -100,6 +85,5 @@ export default {
     findGatewayUserByToken,
     parseJsonConfig,
     pathExists,
-    enrichGatewayUser,
     buildClientStatus,
 };

@@ -28,8 +28,8 @@ export interface ClientConfigStatus {
 export interface CurrentClientConfig {
     configPath: string;
     connectionMode: ClientConnectionMode;
-    backendUrl: string;
-    token: string;
+    gatewayUrl: string;
+    apiKey: string;
     model: string;
     protocol: ClientProtocol;
     gatewayUser: GatewayUserInfo | null;

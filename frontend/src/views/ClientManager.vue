@@ -386,7 +386,7 @@
                             <a-input :value="getProtocolLabel(detailConfig.protocol)" disabled />
                         </a-form-item>
                         <a-form-item label="服务端地址">
-                            <a-input :value="detailConfig.backendUrl" disabled />
+                            <a-input :value="detailConfig.gatewayUrl" disabled />
                         </a-form-item>
                         <a-form-item label="用户">
                             <a-select :value="detailConfig.gatewayUser?.id" disabled class="readonly-select">
@@ -431,7 +431,7 @@
                             <a-input :value="getProtocolLabel(detailConfig.protocol)" disabled />
                         </a-form-item>
                         <a-form-item label="供应商">
-                            <a-select :value="findVendorByUrl(detailConfig.backendUrl, detailConfig.protocol)?.id" disabled class="readonly-select">
+                            <a-select :value="findVendorByUrl(detailConfig.gatewayUrl, detailConfig.protocol)?.id" disabled class="readonly-select">
                                 <a-select-option
                                     v-for="vendor in vendors"
                                     :key="vendor.id"
@@ -636,7 +636,7 @@ async function openConfigDialog(client: ClientConfigStatus, backup?: ClientConfi
         configForm.effortLevel = backup.config.effortLevel;
 
         if (backup.config.connectionMode === 'gateway') {
-            configForm.gatewayUrl = backup.config.backendUrl;
+            configForm.gatewayUrl = backup.config.gatewayUrl;
             configForm.model = backup.config.model;
             if (backup.config.gatewayUser) {
                 const userId = backup.config.gatewayUser.id;
@@ -647,7 +647,7 @@ async function openConfigDialog(client: ClientConfigStatus, backup?: ClientConfi
                 }
             } else {
                 // Fallback to token parsing if gatewayUser is not set (for older configs)
-                const tokenStr = backup.config.token || '';
+                const tokenStr = backup.config.apiKey || '';
                 const match = tokenStr.match(/^u-(\d+)-/);
                 if (match && match[1]) {
                     const userId = parseInt(match[1], 10);
@@ -661,7 +661,7 @@ async function openConfigDialog(client: ClientConfigStatus, backup?: ClientConfi
                 }
             }
         } else {
-            configForm.upstreamUrl = backup.config.backendUrl;
+            configForm.upstreamUrl = backup.config.gatewayUrl;
             configForm.upstreamModel = backup.config.model;
             configForm.vendorId = null;
         }

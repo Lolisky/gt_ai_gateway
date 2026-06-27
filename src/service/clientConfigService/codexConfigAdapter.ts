@@ -1,4 +1,4 @@
-import type { ClientConfigStatus, CreateClientConfigParams, CurrentClientConfig, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigContent, ClientConfigFields, FileSystemApi, PathApi } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import tomlUtil from "../../util/tomlUtil";
@@ -22,18 +22,17 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         this.authPath = this.configPaths[1];
     }
 
-    private buildBaseUrl(params: CreateClientConfigParams): string {
-        const url = params.gatewayUrl.replace(/\/+$/, "");
-        if ((params.connectionMode || "gateway") === "vendor") {
+    private buildBaseUrl(fields: ClientConfigFields): string {
+        const url = fields.gatewayUrl.replace(/\/+$/, "");
+        if ((fields.connectionMode || "gateway") === "vendor") {
             return url
                 .replace(/\/responses\/?$/, "")
                 .replace(/\/chat\/completions\/?$/, "");
         }
-        return params.gatewayUrl;
+        return `${url}${this.defaultGatewaySuffix}`;
     }
 
-
-    async parseConfigContent(configContent: Record<string, string>): Promise<CurrentClientConfig | null> {
+    parseConfigContent(configContent: ClientConfigContent): ClientConfigFields | null {
         const content = configContent[this.configPath] || "";
         if (!content) {
             return null;
@@ -48,41 +47,31 @@ class CodexConfigAdapter extends BaseConfigAdapter {
         }
 
         return {
-            configPath: this.configPath,
             connectionMode: backendUrl?.includes(this.defaultGatewaySuffix) ? "gateway" : "vendor",
-            backendUrl,
-            token,
+            gatewayUrl: backendUrl,
+            apiKey: token,
             model: tomlUtil.getTomlValue(content, "model") || "",
             protocol: "responses",
         };
     }
 
-
-    async getStatus(): Promise<ClientConfigStatus> {
-        return await configAdapterUtils.buildClientStatus(this, this.fs);
-    }
-
-
-    async buildConfigContent(params: CreateClientConfigParams): Promise<Record<string, string>> {
-        if (!(await this.isInstalled())) {
-            throw new Error("Codex config directory not found");
-        }
-
-        let content = await this.readConfigFile();
+    patchConfigContent(configContent: ClientConfigContent, fields: ClientConfigFields): ClientConfigContent {
+        let content = configContent[this.configPath] || "";
         content = tomlUtil.upsertRootTomlValue(content, "model_provider", tomlUtil.buildTomlString("gt_ai_gateway"));
 
-        if (params.model.trim()) {
-            content = tomlUtil.upsertRootTomlValue(content, "model", tomlUtil.buildTomlString(params.model.trim()));
+        if (fields.model.trim()) {
+            content = tomlUtil.upsertRootTomlValue(content, "model", tomlUtil.buildTomlString(fields.model.trim()));
         }
 
         content = tomlUtil.upsertTomlTable(content, "model_providers.gt_ai_gateway", {
             name: tomlUtil.buildTomlString("GT AI Gateway"),
-            base_url: tomlUtil.buildTomlString(this.buildBaseUrl(params)),
+            base_url: tomlUtil.buildTomlString(this.buildBaseUrl(fields)),
             wire_api: tomlUtil.buildTomlString("responses"),
-            experimental_bearer_token: tomlUtil.buildTomlString(params.apiKey),
+            experimental_bearer_token: tomlUtil.buildTomlString(fields.apiKey),
         });
 
         return {
+            ...configContent,
             [this.configPath]: `${content.trim()}\n`,
         };
     }

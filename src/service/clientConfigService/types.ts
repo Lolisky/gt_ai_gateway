@@ -5,14 +5,17 @@ import type { ClientConfigContent } from "../../model/sgClientConfigBackup";
 type ConnectionMode = "gateway" | "vendor";
 type ClientProtocol = "anthropic" | "responses";
 
-interface CreateClientConfigParams {
-    client: ClientName;
+interface ClientConfigFields {
     connectionMode?: ConnectionMode;
     protocol?: ClientProtocol;
     gatewayUrl: string;
     apiKey: string;
     model: string;
     effortLevel?: string;
+}
+
+interface CreateClientConfigParams extends ClientConfigFields {
+    client: ClientName;
 }
 
 interface ApplyClientConfigParams {
@@ -47,30 +50,29 @@ interface ClientConfigStatusResponse {
     clients: ClientConfigStatus[];
 }
 
-interface ClientConfigStatus {
+interface AdapterConfigStatus {
     client: ClientName;
     displayName: string;
     installed: boolean;
     configured: boolean;
-    backupExists: boolean;
-    backupCount: number;
-    backups: ClientConfigBackupInfo[];
-    activeBackupId?: number;
-    activeConfigModified: boolean;
-    currentConfig: CurrentClientConfigWithUser | null;
+    currentConfig: ClientConfigFields | null;
     defaultGatewaySuffix: string;
     configPath: string;
     configPaths: string[];
     message?: string;
 }
 
-interface CurrentClientConfig {
+interface ClientConfigStatus extends AdapterConfigStatus {
+    backupExists: boolean;
+    backupCount: number;
+    backups: ClientConfigBackupInfo[];
+    activeBackupId?: number;
+    activeConfigModified: boolean;
+    currentConfig: CurrentClientConfigWithUser | null;
+}
+
+interface CurrentClientConfig extends ClientConfigFields {
     configPath: string;
-    connectionMode: ConnectionMode;
-    backendUrl: string;
-    token: string;
-    model: string;
-    protocol: ClientProtocol;
 }
 
 interface CurrentClientConfigWithUser extends CurrentClientConfig {
@@ -115,17 +117,18 @@ interface ConfigAdapter {
     readonly configPaths: string[];
 
     isInstalled(): Promise<boolean>;
-    getStatus(): Promise<ClientConfigStatus>;
-    buildConfigContent(params: CreateClientConfigParams): Promise<ClientConfigContent>;
-    parseConfigContent(configContent: ClientConfigContent): Promise<CurrentClientConfig | null>;
-    readConfigFiles(): Promise<ClientConfigContent>;
-    restore(configContent: ClientConfigContent): Promise<ClientConfigStatus>;
+    readConfig(): Promise<ClientConfigContent>;
+    writeConfig(content: ClientConfigContent): Promise<void>;
+    patchConfigContent(content: ClientConfigContent, fields: ClientConfigFields): ClientConfigContent;
+    parseConfigContent(content: ClientConfigContent): ClientConfigFields | null;
 }
 
 export type {
+    AdapterConfigStatus,
     ApplyClientConfigParams,
     ClientConfigBackupInfo,
     ClientConfigContent,
+    ClientConfigFields,
     ClientConfigStatus,
     ClientConfigStatusResponse,
     ClientProtocol,
