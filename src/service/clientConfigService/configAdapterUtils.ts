@@ -1,14 +1,10 @@
 import { SgUser } from "../../model/sgUser";
 import type { ConfigAdapter, FileSystemApi, GatewayUserInfo, AdapterConfigStatus } from "./types";
+import fsUtil from "../../util/fsUtil";
 
 
-async function pathExists(fs: FileSystemApi, path: string): Promise<boolean> {
-    try {
-        await fs.access(path);
-        return true;
-    } catch {
-        return false;
-    }
+async function pathExists(path: string): Promise<boolean> {
+    return fsUtil.pathExists(path);
 }
 
 
@@ -52,13 +48,13 @@ async function findGatewayUserByToken(token: string): Promise<GatewayUserInfo | 
 }
 
 
-async function buildClientStatus(adapter: ConfigAdapter, fs: FileSystemApi): Promise<AdapterConfigStatus> {
+async function buildClientStatus(adapter: ConfigAdapter): Promise<AdapterConfigStatus> {
     const installed = await adapter.isInstalled();
     let configured = false;
     let message: string | undefined;
     let currentConfig = null;
 
-    if (installed && await pathExists(fs, adapter.configPaths[0])) {
+    if (installed && await pathExists(adapter.configPaths[0])) {
         try {
             currentConfig = adapter.parseConfigFileContent(await adapter.readConfig());
             configured = Boolean(currentConfig);

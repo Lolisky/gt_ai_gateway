@@ -4,17 +4,13 @@ import type {
     ApiFormat,
     ClientName,
     ConfigAdapter,
-    FileSystemApi,
-    PathApi,
 } from "./types";
-import configAdapterUtils from "./configAdapterUtils";
+import fsUtil from "../../util/fsUtil";
 import hostService from "../hostService";
+import path from "path";
 
 
 abstract class BaseConfigAdapter implements ConfigAdapter {
-    // 注入 fs 和 path 的目的是为了跨环境兼容（例如在 Node.js 和 Tauri 前端直连时可能采用不同的 API实现）
-    protected fs: FileSystemApi;
-    protected path: PathApi;
     readonly client: ClientName;
     readonly displayName: string;
     abstract readonly protocol: ApiFormat;
@@ -25,14 +21,10 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     abstract patchConfigFileContent(content: ClientConfigFileContent, fields: ClientConfigContent): ClientConfigFileContent;
 
     constructor(
-        fs: FileSystemApi,
-        path: PathApi,
         client: ClientName,
         displayName: string,
         configPaths: string[],
     ) {
-        this.fs = fs;
-        this.path = path;
         this.client = client;
         this.displayName = displayName;
         if (!configPaths || configPaths.length === 0) {
@@ -58,17 +50,17 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
 
 
     async isInstalled(): Promise<boolean> {
-        return await configAdapterUtils.pathExists(this.fs, this.path.dirname(this.configPaths[0]));
+        return await fsUtil.pathExists(path.dirname(this.configPaths[0]));
     }
-
 
 
     async readConfig(): Promise<ClientConfigFileContent> {
         const configContent: ClientConfigFileContent = {};
 
         for (const filePath of this.configPaths) {
-            if (await configAdapterUtils.pathExists(this.fs, filePath)) {
-                configContent[filePath] = await this.fs.readFile(filePath, "utf-8");
+            if (await fsUtil.pathExists(filePath)) {
+                const fs = await fsUtil.loadFs();
+                configContent[filePath] = await fs.readFile(filePath, "utf-8");
             }
         }
 
@@ -77,19 +69,21 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
 
 
     async writeConfig(configContent: ClientConfigFileContent): Promise<void> {
+        const fs = await fsUtil.loadFs();
+
         for (const [filePath, content] of Object.entries(configContent)) {
             if (!this.configPaths.includes(filePath)) {
                 throw new Error(`Unsupported config file path: ${filePath}`);
             }
 
-            await this.fs.mkdir(this.path.dirname(filePath), { recursive: true });
-            await this.fs.writeFile(filePath, content, "utf-8");
+            await fs.mkdir(path.dirname(filePath), { recursive: true });
+            await fs.writeFile(filePath, content, "utf-8");
         }
 
         for (const filePath of this.configPaths) {
             if (!(filePath in configContent)) {
-                if (await configAdapterUtils.pathExists(this.fs, filePath)) {
-                    await this.fs.unlink(filePath);
+                if (await fsUtil.pathExists(filePath)) {
+                    await fs.unlink(filePath);
                 }
             }
         }

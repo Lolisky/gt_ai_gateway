@@ -1,15 +1,16 @@
-import type { ClientConfigFileContent, ClientConfigContent, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigFileContent, ClientConfigContent } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import configAdapterUtils from "./configAdapterUtils";
 import { ClientName, ConnectionMode, ApiFormat } from "../../constants";
+import path from "path";
 
 
 class ClaudeCodeConfigAdapter extends BaseConfigAdapter {
     readonly protocol: ApiFormat = ApiFormat.ANTHROPIC;
     readonly defaultGatewaySuffix = "/llm";
 
-    constructor(fs: FileSystemApi, path: PathApi, homeDir: string) {
-        super(fs, path, ClientName.CLAUDE_CODE, "Claude Code", [path.join(homeDir, ".claude", "settings.json")]);
+    constructor(homeDir: string) {
+        super(ClientName.CLAUDE_CODE, "Claude Code", [path.join(homeDir, ".claude", "settings.json")]);
     }
 
     private buildBaseUrl(fields: ClientConfigContent): string {

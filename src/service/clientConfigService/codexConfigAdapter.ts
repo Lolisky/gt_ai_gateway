@@ -1,7 +1,8 @@
-import type { ClientConfigFileContent, ClientConfigContent, FileSystemApi, PathApi } from "./types";
+import type { ClientConfigFileContent, ClientConfigContent } from "./types";
 import BaseConfigAdapter from "./baseConfigAdapter";
 import tomlUtil from "../../util/tomlUtil";
 import { ClientName, ConnectionMode, ApiFormat } from "../../constants";
+import path from "path";
 
 
 class CodexConfigAdapter extends BaseConfigAdapter {
@@ -10,11 +11,9 @@ class CodexConfigAdapter extends BaseConfigAdapter {
     readonly defaultGatewaySuffix = "/llm/v1";
     private static readonly RESERVED_PROVIDER_IDS = ["openai", "ollama"];
 
-    constructor(fs: FileSystemApi, path: PathApi, homeDir: string) {
+    constructor(homeDir: string) {
         const codexHome = process.env.CODEX_HOME || path.join(homeDir, ".codex");
         super(
-            fs,
-            path,
             ClientName.CODEX,
             "Codex",
             [path.join(codexHome, "config.toml"), path.join(codexHome, "auth.json")]

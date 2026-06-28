@@ -13,8 +13,6 @@ import type {
     CreateClientConfigBackupParams,
     CreateClientConfigParams,
     DeleteClientConfigBackupParams,
-    FileSystemApi,
-    PathApi,
     RenameClientConfigBackupParams,
     UpdateClientConfigBackupParams,
     AdapterConfigStatus,
@@ -31,23 +29,15 @@ function getHomeDir(): string {
 }
 
 
-async function loadNodeApis(): Promise<{ fs: FileSystemApi; path: PathApi }> {
-    const fs = await import("fs/promises");
-    const path = await import("path");
-    return { fs, path };
-}
-
-
 async function getAdapters(): Promise<ConfigAdapter[]> {
     const homeDir = getHomeDir();
     if (!homeDir) {
         throw new Error("Cannot determine user home directory");
     }
 
-    const { fs, path } = await loadNodeApis();
     return [
-        new ClaudeCodeConfigAdapter(fs, path, homeDir),
-        new CodexConfigAdapter(fs, path, homeDir),
+        new ClaudeCodeConfigAdapter(homeDir),
+        new CodexConfigAdapter(homeDir),
     ];
 }
 
@@ -238,9 +228,8 @@ async function getStatus(): Promise<ClientConfigStatusResponse> {
     }
 
     const adapters = await getAdapters();
-    const { fs } = await loadNodeApis();
     const clients = await Promise.all(adapters.map(async (adapter) => {
-        const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+        const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
         return await enrichStatus(adapterStatus, adapter);
     }));
     return {
@@ -325,8 +314,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
         enabled: false,
     });
 
-    const { fs } = await loadNodeApis();
-    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
     return await enrichStatus(adapterStatus, adapter);
 }
 
@@ -439,8 +427,7 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         await adapter.writeConfig(patchedContent);
     }
 
-    const { fs } = await loadNodeApis();
-    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
     return await enrichStatus(adapterStatus, adapter);
 }
 
@@ -460,8 +447,7 @@ async function syncFromLocal(params: { client: ClientName; backupId: number }): 
     const configContent = await adapter.readConfig();
     const fields = adapter.parseConfigFileContent(configContent) || { version: "v1", connectionMode: ConnectionMode.OFFICIAL, gatewayUrl: "", apiKey: "", model: "" };
     await backup.update({ configContent: fields });
-    const { fs } = await loadNodeApis();
-    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
     return await enrichStatus(adapterStatus, adapter);
 }
 
@@ -482,8 +468,7 @@ async function deleteBackup(params: DeleteClientConfigBackupParams): Promise<Cli
     }
 
     await backup.delete();
-    const { fs } = await loadNodeApis();
-    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
     return await enrichStatus(adapterStatus, adapter);
 }
 
@@ -536,8 +521,7 @@ async function applyConfig(params: ApplyClientConfigParams): Promise<ClientConfi
 
     await adapter.writeConfig(patchedContent);
     await enableBackup(params.client, backup);
-    const { fs } = await loadNodeApis();
-    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter, fs);
+    const adapterStatus = await configAdapterUtils.buildClientStatus(adapter);
     return await enrichStatus(adapterStatus, adapter);
 }
 
