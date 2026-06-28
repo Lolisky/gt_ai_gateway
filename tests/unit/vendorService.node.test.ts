@@ -1,24 +1,18 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, rm } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
-import ormService from "../../src/service/ormService";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SgVendor } from "../../src/model/sgVendor";
 import vendorService from "../../src/service/vendorService";
 import { ApiFormat } from "../../src/constants";
+import dbHelper from "../helpers/dbHelper";
+import ormTestHelper from "../helpers/ormTestHelper";
 
 
 describe("vendorService.findVendorByUrl", () => {
-    let dbPath = "";
-
     beforeAll(async () => {
-        const tempRoot = await mkdtemp(join(tmpdir(), "gt-vendor-service-"));
-        dbPath = join(tempRoot, "test.db");
-        await ormService.init({ mode: "node", dbPath });
+        await ormTestHelper.connectNodeOrm();
     });
 
     beforeEach(async () => {
-        await SgVendor.query().delete();
+        await dbHelper.truncate();
     });
 
     async function createVendor(type: string, urls: Record<string, string> = {}): Promise<SgVendor> {

@@ -5,34 +5,55 @@ import { tmpdir } from "os";
 import clientConfigService from "../../src/service/clientConfigService/core";
 import ormService from "../../src/service/ormService";
 import SgClientConfig from "../../src/model/sgClientConfig";
-import { ClientName, ConnectionMode } from "../../src/constants";
+import { SgUser } from "../../src/model/sgUser";
+import { SgVendor } from "../../src/model/sgVendor";
+import { ClientName, ConnectionMode, UserType, UserStatus, VendorType } from "../../src/constants";
+import dbHelper from "../helpers/dbHelper";
+import ormTestHelper from "../helpers/ormTestHelper";
 
 
 describe("clientConfigService", () => {
     let tempRoot = "";
     let tempDir = "";
-    let dbPath = "";
     let originalHome: string | undefined;
     let originalCodexHome: string | undefined;
     let originalOrmMode: "worker" | "node";
+    let testUserId = 0;
+    let testVendorId = 0;
 
     beforeAll(async () => {
         originalHome = process.env.HOME;
         originalCodexHome = process.env.CODEX_HOME;
+        await ormTestHelper.connectNodeOrm();
         originalOrmMode = ormService.mode;
         tempRoot = await mkdtemp(join(tmpdir(), "gt-client-config-"));
-        dbPath = join(tempRoot, "test.db");
-        await ormService.init({ mode: "node", dbPath });
     });
 
     beforeEach(async () => {
-        await SgClientConfig.query().delete();
+        await dbHelper.truncate();
         ormService.mode = "node";
         tempDir = await mkdtemp(join(tempRoot, "home-"));
         process.env.HOME = tempDir;
         process.env.CODEX_HOME = join(tempDir, ".codex");
         await mkdir(join(tempDir, ".claude"), { recursive: true });
         await mkdir(process.env.CODEX_HOME, { recursive: true });
+        // Create a test user for GATEWAY mode
+        const testUser = await SgUser.query().create({
+            name: "test-user",
+            token: "test-token",
+            type: UserType.NORMAL,
+            balance: 10000,
+            status: UserStatus.ACTIVE,
+        });
+        testUserId = Number(testUser.id);
+        // Create a test vendor for VENDOR mode
+        const testVendor = await SgVendor.query().create({
+            name: "test-vendor",
+            type: VendorType.OTHER,
+            token: "vendor-token",
+            urls: JSON.stringify({}),
+        });
+        testVendorId = Number(testVendor.id);
     });
 
     afterEach(async () => {
@@ -70,6 +91,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CLAUDE_CODE,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "test-token",
             model: "test-model",
@@ -131,6 +153,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CLAUDE_CODE,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "test-token",
             model: "test-model",
@@ -150,6 +173,7 @@ describe("clientConfigService", () => {
         const firstBackup = await clientConfigService.createBackup({ client: ClientName.CLAUDE_CODE });
         const status = await clientConfigService.createConfig({
             client: ClientName.CLAUDE_CODE,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "test-token",
             model: "test-model",
@@ -173,6 +197,7 @@ describe("clientConfigService", () => {
             gatewayUrl: "http://127.0.0.1:8720/",
             apiKey: "test-token",
             model: "test-model",
+            userId: testUserId,
         });
 
         expect(status.configured).toBe(true);  // Now configured because auth.json has token
@@ -208,7 +233,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CLAUDE_CODE,
-            connectionMode: ConnectionMode.VENDOR,
+            connectionMode: ConnectionMode.VENDOR, vendorId: testVendorId,
             gatewayUrl: "https://api.anthropic.com/v1/messages",
             apiKey: "vendor-token",
             model: "claude-sonnet",
@@ -228,7 +253,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.VENDOR,
+            connectionMode: ConnectionMode.VENDOR, vendorId: testVendorId,
             gatewayUrl: "https://api.openai.com/v1/chat/completions",
             apiKey: "vendor-token",
             model: "gpt-5",
@@ -250,7 +275,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "gateway-token",
             model: "test-model",
@@ -259,7 +284,7 @@ describe("clientConfigService", () => {
         await clientConfigService.applyConfig({ client: ClientName.CODEX, backupId: generatedBackup!.id });
 
         const auth = JSON.parse(await readFile(authPath, "utf-8"));
-        expect(auth.OPENAI_API_KEY).toBe("gateway-token");
+        expect(auth.OPENAI_API_KEY).toBe("test-token");
         expect(auth.tokens).toBeUndefined();
     });
 
@@ -271,7 +296,7 @@ describe("clientConfigService", () => {
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.VENDOR,
+            connectionMode: ConnectionMode.VENDOR, vendorId: testVendorId,
             gatewayUrl: "https://api.openai.com/v1/chat/completions",
             apiKey: "vendor-token",
             model: "gpt-5",
@@ -314,7 +339,7 @@ describe("clientConfigService", () => {
         // Apply GATEWAY config
         const gatewayStatus = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "gateway-token",
             model: "test-model",
@@ -323,7 +348,7 @@ describe("clientConfigService", () => {
         await clientConfigService.applyConfig({ client: ClientName.CODEX, backupId: gatewayBackup!.id });
 
         let auth = JSON.parse(await readFile(authPath, "utf-8"));
-        expect(auth.OPENAI_API_KEY).toBe("gateway-token");
+        expect(auth.OPENAI_API_KEY).toBe("test-token");
 
         // Set up auth.json with id_token for OFFICIAL mode
         await writeFile(authPath, JSON.stringify({ tokens: { access_token: "old-token", id_token: "old-id-token" } }));
@@ -399,7 +424,7 @@ experimental_bearer_token = "gateway-token"
         // Switch to GATEWAY config
         const gatewayStatus = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "gateway-token",
             model: "test-model",
@@ -408,7 +433,7 @@ experimental_bearer_token = "gateway-token"
         await clientConfigService.applyConfig({ client: ClientName.CODEX, backupId: gatewayBackup!.id });
 
         auth = JSON.parse(await readFile(authPath, "utf-8"));
-        expect(auth.OPENAI_API_KEY).toBe("gateway-token");
+        expect(auth.OPENAI_API_KEY).toBe("test-token");
         expect(auth.tokens).toBeUndefined();
     });
 
@@ -420,7 +445,7 @@ experimental_bearer_token = "gateway-token"
 
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "gateway-token",
             model: "test-model",
@@ -429,7 +454,7 @@ experimental_bearer_token = "gateway-token"
         await clientConfigService.applyConfig({ client: ClientName.CODEX, backupId: generatedBackup!.id });
 
         const auth = JSON.parse(await readFile(authPath, "utf-8"));
-        expect(auth.OPENAI_API_KEY).toBe("gateway-token");
+        expect(auth.OPENAI_API_KEY).toBe("test-token");
         expect(auth.auth_mode).toBe("chatgpt");
         expect(auth.existing_field).toBe("value");
     });
@@ -615,7 +640,7 @@ experimental_bearer_token = "old-token"
         // Apply new config
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "new-token",
             model: "gpt-5.5",
@@ -629,7 +654,7 @@ experimental_bearer_token = "old-token"
         expect(updated).toContain("model_provider = \"gt_ai_gateway\"");
         expect(updated).toContain("[model_providers.gt_ai_gateway]");
         expect(updated).toContain("base_url = \"http://127.0.0.1:8720/llm/v1\"");
-        expect(updated).toContain("experimental_bearer_token = \"new-token\"");
+        expect(updated).toContain("experimental_bearer_token = \"test-token\"");
 
         // Should NOT have legacy root-level fields (before any table)
         const firstTableIndex = updated.indexOf("[");
@@ -654,7 +679,7 @@ experimental_bearer_token = "old-token"
         // Apply new config
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "new-token",
             model: "gpt-5.5",
@@ -671,7 +696,7 @@ experimental_bearer_token = "old-token"
         // Should have root-level fields
         expect(updated).toContain("base_url = \"http://127.0.0.1:8720/llm/v1\"");
         expect(updated).toContain("wire_api = \"responses\"");
-        expect(updated).toContain("experimental_bearer_token = \"new-token\"");
+        expect(updated).toContain("experimental_bearer_token = \"test-token\"");
     });
 
     it("uses legacy format for OFFICIAL mode when config has no model_provider", async () => {
@@ -728,7 +753,7 @@ model = "gpt-5"
         // Apply VENDOR config - should use new format (write to table)
         let configStatus = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "token-1",
             model: "model-1",
@@ -759,7 +784,7 @@ base_url = "http://old-server:8080"
         // Apply VENDOR config - should use legacy format (write to root level)
         configStatus = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "token-2",
             model: "model-2",
@@ -774,7 +799,7 @@ base_url = "http://old-server:8080"
         // Should have root-level fields
         expect(updated).toContain("base_url = \"http://127.0.0.1:8720/llm/v1\"");
         expect(updated).toContain("wire_api = \"responses\"");
-        expect(updated).toContain("experimental_bearer_token = \"token-2\"");
+        expect(updated).toContain("experimental_bearer_token = \"test-token\"");
     });
 
     it("handles duplicate root-level fields correctly", async () => {
@@ -802,7 +827,7 @@ experimental_bearer_token = "old-token-1"
         // Apply new config
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "new-token",
             model: "gpt-5.5",
@@ -829,7 +854,7 @@ experimental_bearer_token = "old-token-1"
         // Should have the new values in the table
         expect(updated).toContain("[model_providers.gt_ai_gateway]");
         expect(updated).toContain("base_url = \"http://127.0.0.1:8720/llm/v1\"");
-        expect(updated).toContain("experimental_bearer_token = \"new-token\"");
+        expect(updated).toContain("experimental_bearer_token = \"test-token\"");
     });
 
     it("handles corrupted config.toml with duplicate fields and table", async () => {
@@ -860,7 +885,7 @@ experimental_bearer_token = "83ce4a09-a951-4fb7-bb8d-064fb583358a"
         // Apply new config
         const status = await clientConfigService.createConfig({
             client: ClientName.CODEX,
-            connectionMode: ConnectionMode.GATEWAY,
+            connectionMode: ConnectionMode.GATEWAY, userId: testUserId,
             gatewayUrl: "http://127.0.0.1:8720",
             apiKey: "new-token",
             model: "gpt-5",
@@ -896,7 +921,7 @@ experimental_bearer_token = "83ce4a09-a951-4fb7-bb8d-064fb583358a"
         expect(updated).toContain("model_provider = \"gt_ai_gateway\"");
         expect(updated).toContain("[model_providers.gt_ai_gateway]");
         expect(updated).toContain("base_url = \"http://127.0.0.1:8720/llm/v1\"");
-        expect(updated).toContain("experimental_bearer_token = \"new-token\"");
+        expect(updated).toContain("experimental_bearer_token = \"test-token\"");
         expect(updated).toContain("model = \"gpt-5\"");
     });
 

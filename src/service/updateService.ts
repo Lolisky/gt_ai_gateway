@@ -1,4 +1,3 @@
-import type { SgContext } from "../types";
 import packageJson from "../../package.json";
 import { getLogger } from "../util/logger";
 
@@ -24,7 +23,7 @@ let cachedStatus: UpdateStatus | null = null;
 let lastCheckTime = 0;
 const CHECK_INTERVAL = 1000 * 60 * 60 * 12; // 12 hours
 
-async function checkUpdate(ctx: SgContext, force: boolean = false): Promise<UpdateStatus> {
+async function checkUpdate(_ctx: any, force: boolean = false): Promise<UpdateStatus> {
     const currentVersion = packageJson.version;
     const now = Date.now();
 

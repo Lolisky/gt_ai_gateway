@@ -342,13 +342,15 @@ class SSEAccumulator {
             // 更新最终的 usage（output_tokens 在这里最终确定）
             if (msg.message?.usage || msg.usage) {
                 const usage = msg.usage || msg.message?.usage;
-                const promptTokens = usage.input_tokens ?? this.response.usage?.prompt_tokens ?? 0;
-                const completionTokens = usage.output_tokens ?? this.response.usage?.completion_tokens ?? 0;
-                this.response.usage = {
-                    prompt_tokens: promptTokens,
-                    completion_tokens: completionTokens,
-                    cache_read_tokens: usage.cache_read_input_tokens ?? this.response.usage?.cache_read_tokens,
-                };
+                if (usage) {
+                    const promptTokens = usage.input_tokens ?? this.response.usage?.prompt_tokens ?? 0;
+                    const completionTokens = usage.output_tokens ?? this.response.usage?.completion_tokens ?? 0;
+                    this.response.usage = {
+                        prompt_tokens: promptTokens,
+                        completion_tokens: completionTokens,
+                        cache_read_tokens: usage.cache_read_input_tokens ?? this.response.usage?.cache_read_tokens,
+                    };
+                }
             }
             return;
         }

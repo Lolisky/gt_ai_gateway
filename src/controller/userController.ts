@@ -20,7 +20,7 @@ async function listUsers(c: Context) {
 
     const total = Number(await dbQuery.clone().count() || 0);
     const users = await dbQuery.limit(pageSize).offset(offset).get();
-    return c.json(createListResponse(users, total));
+    return c.json(createListResponse(users.toArray(), total));
 }
 
 async function getUser(c: Context) {

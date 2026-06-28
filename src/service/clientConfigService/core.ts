@@ -252,22 +252,38 @@ async function resolveApiKey(connectionMode?: ConnectionMode, vendorId?: number,
 }
 
 
+async function resolveConfigApiKey(
+    connectionMode: ConnectionMode,
+    apiKey?: string,
+    vendorId?: number,
+    userId?: number,
+): Promise<string> {
+    if (connectionMode === ConnectionMode.OFFICIAL) {
+        return apiKey?.trim() || "";
+    }
+
+    return await resolveApiKey(connectionMode, vendorId, userId);
+}
+
+
 async function createConfig(params: CreateClientConfigParams): Promise<ClientConfigStatus> {
     if (ormService.isWorker) {
         throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
     }
 
+    const resolvedMode = params.connectionMode || ConnectionMode.GATEWAY;
+
     // Skip validation for OFFICIAL mode (no gatewayUrl or apiKey required)
-    if (params.connectionMode !== ConnectionMode.OFFICIAL) {
+    if (resolvedMode !== ConnectionMode.OFFICIAL) {
         if (!params.gatewayUrl?.trim()) {
             throw new Error("Gateway URL is required");
         }
 
-        if (params.connectionMode === ConnectionMode.VENDOR) {
+        if (resolvedMode === ConnectionMode.VENDOR) {
             if (!params.vendorId) {
                 throw new Error("Vendor is required");
             }
-        } else if (params.connectionMode === ConnectionMode.GATEWAY) {
+        } else if (resolvedMode === ConnectionMode.GATEWAY) {
             if (!params.userId) {
                 throw new Error("User is required");
             }
@@ -277,11 +293,11 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
     const adapter = await getAdapter(params.client);
     const existingContent = await adapter.readConfig();
 
-    const apiKey = await resolveApiKey(params.connectionMode, params.vendorId, params.userId);
+    const apiKey = await resolveConfigApiKey(resolvedMode, params.apiKey, params.vendorId, params.userId);
 
     // For Codex OFFICIAL mode, read authJson from local config and update access_token
     let authJson: Record<string, any> | undefined;
-    if (params.client === ClientName.CODEX && (params.connectionMode || ConnectionMode.GATEWAY) === ConnectionMode.OFFICIAL) {
+    if (params.client === ClientName.CODEX && resolvedMode === ConnectionMode.OFFICIAL) {
         const authContent = existingContent[adapter.configPaths[1]];
         if (authContent) {
             try {
@@ -289,7 +305,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
                 // Only use authJson if it has tokens with id_token
                 if (parsed?.tokens?.id_token) {
                     authJson = parsed;
-                    authJson.tokens.access_token = apiKey;
+                    authJson!.tokens.access_token = apiKey;
                 }
             } catch (e) {
                 // Ignore parsing errors
@@ -299,8 +315,8 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
 
     const fields: ClientConfigContent = {
         version: "v1",
-        connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
-        gatewayUrl: params.gatewayUrl.trim(),
+        connectionMode: resolvedMode,
+        gatewayUrl: params.gatewayUrl?.trim() || "",
         apiKey,
         model: params.model?.trim() || "",
         effortLevel: params.effortLevel?.trim(),
@@ -378,17 +394,19 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
     }
 
+    const resolvedMode = params.connectionMode || ConnectionMode.GATEWAY;
+
     // Skip validation for OFFICIAL mode (no gatewayUrl or apiKey required)
-    if (params.connectionMode !== ConnectionMode.OFFICIAL) {
+    if (resolvedMode !== ConnectionMode.OFFICIAL) {
         if (!params.gatewayUrl?.trim()) {
             throw new Error("Gateway URL is required");
         }
 
-        if (params.connectionMode === ConnectionMode.VENDOR) {
+        if (resolvedMode === ConnectionMode.VENDOR) {
             if (!params.vendorId) {
                 throw new Error("Vendor is required");
             }
-        } else if (params.connectionMode === ConnectionMode.GATEWAY) {
+        } else if (resolvedMode === ConnectionMode.GATEWAY) {
             if (!params.userId) {
                 throw new Error("User is required");
             }
@@ -405,11 +423,11 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         throw new Error("Backup not found");
     }
 
-    const apiKey = await resolveApiKey(params.connectionMode, params.vendorId, params.userId);
+    const apiKey = await resolveConfigApiKey(resolvedMode, params.apiKey, params.vendorId, params.userId);
 
     const fields: ClientConfigContent = {
         version: "v1",
-        connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
+        connectionMode: resolvedMode,
         gatewayUrl: params.gatewayUrl?.trim() || "",
         apiKey,
         model: params.model?.trim() || "",

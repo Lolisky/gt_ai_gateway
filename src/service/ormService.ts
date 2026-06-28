@@ -109,26 +109,26 @@ class ORMService {
         // this.d1Driver 通过 _updateD1Binding() 在每次请求的 dbMiddleware 中更新。
 
         // 绕过连接池，始终使用当前请求的 D1 binding
-        ClientD1.prototype.acquireConnection = async function () {
-            return this.d1Driver;
+        (ClientD1.prototype as any).acquireConnection = async function () {
+            return (this as any).d1Driver;
         };
 
-        ClientD1.prototype.releaseConnection = async function () {
+        (ClientD1.prototype as any).releaseConnection = async function () {
             return;
         };
 
         // Date 补丁 + 使用当前请求的 D1 binding
         // worker 模式的 knex-cloudflare-d1 不实现 _formatBindings()，
         // Date 对象直接传给 D1 bind() 会报错（只接受 string|number|null）
-        const originalQuery = ClientD1.prototype._query;
-        ClientD1.prototype._query = async function (connection: any, obj: any) {
+        const originalQuery = (ClientD1.prototype as any)._query;
+        (ClientD1.prototype as any)._query = async function (connection: any, obj: any) {
             if (obj.bindings) {
                 obj.bindings = obj.bindings.map((b: any) =>
                     b instanceof Date ? b.toISOString() : b
                 );
             }
             // 始终使用 this.d1Driver 而非 connection 参数（可能来自过期的连接池）
-            return originalQuery.call(this, this.d1Driver, obj);
+            return originalQuery.call(this, (this as any).d1Driver, obj);
         };
 
         sutando.addConnection({

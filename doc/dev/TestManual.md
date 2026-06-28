@@ -106,6 +106,7 @@ tests/
 
 * 测试文件名中不带有 negative 为正向用例，即验证应该成功的情况
 * 带有 negative 的为负向用例，即验证应该失败的情况
+* 带有 `.node.test.ts` 后缀的用例为 Node-only 测试，适用于依赖本地文件系统或 Node SQLite ORM 连接的场景，worker 模式测试套件会排除这些用例
 
 ---
 
@@ -130,6 +131,7 @@ Mock AI 服务器用来模拟上游的 LLM API。位于 `tests/helpers/mockServe
 2. **测试类级别隔离**：每个 `describe` 块开始时清空所有数据表
 3. **测试数据自包含**：每个测试在 `beforeAll` 中创建所需的全部数据
 4. **数据库重置**：测试文件之间不共享数据状态
+5. **数据库生命周期统一管理**：测试不要自行创建或删除测试数据库文件，数据库初始化、migration 和最终清理由 `globalSetup` 与 `dbHelper` 统一负责；测试内通过 `dbHelper.truncate()` 清空数据表
 
 ### 典型测试数据流
 
@@ -206,4 +208,3 @@ fileParallelism: false,  // 顺序执行，避免冲突
 每次运行测试时覆盖旧日志文件。
 
 ---
-

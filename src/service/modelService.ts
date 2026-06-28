@@ -52,7 +52,7 @@ async function updateModel(
     }
 
     // Check for duplicate enabled model when enabling or changing name
-    const newName = data.name ?? model.name;
+    const newName = data.name ?? model.name ?? "";
     const newEnable = data.enable !== undefined ? data.enable : model.enable;
 
     if (newEnable) {

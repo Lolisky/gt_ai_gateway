@@ -95,7 +95,7 @@ async function startServer() {
 
     // 构建环境变量
     const bindings: Env = {
-        DB: ormService.dbAdapter.db,
+        DB: (ormService.dbAdapter as any).db,
         ROOT_TOKEN: process.env.ROOT_TOKEN || "",
     };
 

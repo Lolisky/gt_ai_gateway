@@ -58,7 +58,7 @@ async function listVendors(c: Context) {
     }
 
     const formattedVendors = vendors.map(v => formatVendor(v, countMap.get(v.id) ?? 0));
-    return c.json(createListResponse(formattedVendors, total));
+    return c.json(createListResponse(formattedVendors.toArray(), total));
 }
 
 

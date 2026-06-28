@@ -1,4 +1,5 @@
-import { Hono, MiddlewareHandler, HTTPException } from "hono";
+import { Hono, MiddlewareHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { join } from "path";
 import { readFileSync } from "fs";
 import gatewayController from "./controller/gatewayController";
@@ -21,7 +22,7 @@ import customError from "./util/customError";
 interface Env {
     DB: D1Database;
     ROOT_TOKEN: string;
-    ASSETS: Fetcher;
+    ASSETS?: Fetcher;
 }
 
 type Variables = {
@@ -53,7 +54,7 @@ app.use("*", dbMiddleware);
 
 // 注册全局错误处理
 app.onError((err, c) => {
-    const error = err as Record<string, unknown>;
+    const error = err as unknown as Record<string, unknown>;
     const statusCode = error.statusCode as number || 500;
     const message = error.message as string || String(err);
 

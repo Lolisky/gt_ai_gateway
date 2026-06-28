@@ -13,7 +13,7 @@ const originalConsole = {
 
 class Logger {
     private logDir: string;
-    private logFilePath: string;
+    private logFilePath: string = "";
     private enabled: boolean;
 
     constructor(logDir: string, enabled: boolean = true) {

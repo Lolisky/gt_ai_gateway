@@ -77,7 +77,7 @@ async function listModels(c: Context) {
 
     const total = Number(await dbQuery.clone().count() || 0);
     const modelConfigs = await dbQuery.limit(pageSize).offset(offset).get();
-    return c.json(createListResponse(modelConfigs, total));
+    return c.json(createListResponse(modelConfigs.toArray(), total));
 }
 
 
