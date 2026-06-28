@@ -87,10 +87,10 @@ export class ResponsesToAnthropicConverter extends BaseConverter {
             anthropicReq.top_p = req.top_p;
         }
 
-        // tools（过滤掉 web_search、image_generation 等无 name 的非 function 工具）
+        // tools（只保留 function 类型的工具，过滤掉 namespace、web_search、image_generation 等）
         if (req.tools && req.tools.length > 0) {
             anthropicReq.tools = req.tools
-                .filter((t) => !!t.name)
+                .filter((t) => t.type === "function" && !!t.name)
                 .map((t) => ({
                     name: t.name!,
                     description: t.description,

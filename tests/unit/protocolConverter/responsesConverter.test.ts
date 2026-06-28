@@ -253,7 +253,7 @@ describe("ResponsesToAnthropicConverter - convertRequest", () => {
         });
     });
 
-    it("should filter out non-function tools (web_search, image_generation) that have no name", () => {
+    it("should filter out non-function tools (web_search, image_generation, namespace)", () => {
         const req: ResponsesRequest = {
             model: "gpt-4.1",
             input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Hello" }] }],
@@ -269,6 +269,10 @@ describe("ResponsesToAnthropicConverter - convertRequest", () => {
                 } as any,
                 {
                     type: "image_generation",
+                } as any,
+                {
+                    type: "namespace",
+                    name: "multi_agent_v1",
                 } as any,
             ],
         };
