@@ -50,3 +50,7 @@ data/
 tauri/build/
 tauri/node_modules/
 tauri/src-tauri/gen/schemas/windows-schema.json
+
+# coverage
+coverage/
+coverage-*.json
