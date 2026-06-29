@@ -70,6 +70,7 @@
                                         v-for="backup in client.backups"
                                         :key="backup.id"
                                         class="config-row saved-config-row"
+                                        :class="{ 'active-config-row': backup.enabled }"
                                     >
                                         <div class="icon-placeholder" style="display: flex; align-items: center; justify-content: center;" v-if="restoringBackupId === backup.id">
                                             <a-spin size="small" />
@@ -729,8 +730,12 @@ function addBackup(backup: ClientConfigBackupInfo): void {
 
 .config-row-name > span {
     font-weight: 500;
-    color: var(--text-primary);
+    color: var(--text-secondary, #8c8c8c);
     font-size: 14px;
+}
+
+.active-config-row .config-row-name > span {
+    color: var(--text-primary);
 }
 
 .current-config-tag {
