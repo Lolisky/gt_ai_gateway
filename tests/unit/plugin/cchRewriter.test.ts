@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rewriteCchInSystemPrompt } from "../../src/util/cchRewriter";
+import { rewriteCchInSystemPrompt } from "../../../src/plugin/cchRewriter";
 
 describe("cchRewriter", () => {
     it("should rewrite cch when system is a string starting with the billing header", () => {

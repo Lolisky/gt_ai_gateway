@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     buildResponsesPromptCacheKey,
     injectResponsesPromptCacheKey,
-} from "../../src/util/responsesPromptCacheKeyRewriter";
+} from "../../../src/plugin/responsesPromptCacheKeyRewriter";
 
 
 describe("responsesPromptCacheKeyRewriter", () => {
