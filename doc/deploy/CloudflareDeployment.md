@@ -68,7 +68,7 @@
 <img src="../../images/run_cloudflare_deploy.png" width="50%" alt="触发自动部署">
 
 ### 如何修改或自定义 ROOT_TOKEN？
-如果您想把自动生成的随机密码改成自己好记的密码，或者想更新密码，可以通过以下两种方式配置：
+如果您想更新自己的后台管理员密码（即 ROOT_TOKEN），可以通过以下两种方式配置：
 
 **方式一：通过 GitHub Secrets (推荐)**
 1. 进入 GitHub 仓库 `Settings` -> 左侧 `Secrets and variables` -> `Actions`。

@@ -347,12 +347,14 @@ function checkEnvironmentVariables() {
 function verifyTokenPermissions() {
     console.log("Verifying Cloudflare API Token permissions...");
     try {
-        const output = runAndCapture("npx", ["wrangler", "whoami"]);
+        const rawOutput = runAndCapture("npx", ["wrangler", "whoami"]);
+        // Strip ANSI color codes
+        const output = rawOutput.replace(/\x1b\[[0-9;]*m/g, '');
         
         const requiredPermissions = [
-            { name: "Worker Scripts", check: (out) => out.includes("Worker Scripts: Edit") || out.includes("Workers Scripts: Edit") },
-            { name: "D1", check: (out) => out.includes("D1: Edit") },
-            { name: "Workers KV Storage", check: (out) => out.includes("KV Storage: Edit") }
+            { name: "Worker Scripts", check: (out) => /Worker(?:s)? Scripts.*Edit/i.test(out) },
+            { name: "D1", check: (out) => /D1.*Edit/i.test(out) },
+            { name: "Workers KV Storage", check: (out) => /KV Storage.*Edit/i.test(out) }
         ];
         
         const missingPermissions = [];
@@ -371,7 +373,10 @@ function verifyTokenPermissions() {
             missingPermissions.forEach(p => console.error(`  - Account | ${p} | Edit`));
             console.error("\nPlease go to Cloudflare Dashboard -> My Profile -> API Tokens,");
             console.error("and edit your token to ensure it has 'Edit' access for these permissions.");
-            console.error("==========================================\n");
+            console.error("==========================================");
+            console.error("--- DEBUG: ACTUAL TOKEN OUTPUT ---");
+            console.error(output);
+            console.error("----------------------------------\n");
             process.exit(1);
         }
         
