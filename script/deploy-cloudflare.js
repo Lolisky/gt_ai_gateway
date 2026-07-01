@@ -263,35 +263,37 @@ function setupRootToken() {
 
     try {
         const secrets = runAndCapture("npx", ["wrangler", "secret", "list"]);
-        
         const providedToken = process.env.ROOT_TOKEN;
         
-        // If it already exists in Cloudflare and the user didn't explicitly provide a custom one, skip generating a new one.
         if (secrets.includes("ROOT_TOKEN") && !providedToken) {
-            console.log("ROOT_TOKEN already exists.");
+            console.log("ROOT_TOKEN already exists in Cloudflare.");
             return;
         }
 
-        const tokenToSet = providedToken || crypto.randomUUID();
-        console.log(providedToken ? "Using provided ROOT_TOKEN from environment..." : "Generating new random ROOT_TOKEN...");
-        
+        if (!providedToken) {
+            console.error("\n==========================================");
+            console.error(" ❌ [SECURITY ERROR] ROOT_TOKEN MISSING ❌");
+            console.error("==========================================");
+            console.error("For security reasons, we can no longer auto-generate and print the ROOT_TOKEN");
+            console.error("in the deployment logs, because GitHub Actions logs for public forks are PUBLIC!");
+            console.error("Anyone on the internet could see your password if we printed it here.");
+            console.error("\n👉 HOW TO FIX: Go to your GitHub repository Settings -> Secrets and variables -> Actions,");
+            console.error("and add a new secret named 'ROOT_TOKEN' with your own custom password.");
+            console.error("Then re-run this deployment workflow.");
+            console.error("==========================================\n");
+            process.exit(1);
+        }
+
+        console.log("Setting custom ROOT_TOKEN from environment...");
         run("npx", ["wrangler", "secret", "put", "ROOT_TOKEN"], {
-            input: `${tokenToSet}\n`,
+            input: `${providedToken}\n`,
             stdio: ["pipe", "inherit", "inherit"],
         });
 
-        if (!providedToken) {
-            console.log("\n==========================================");
-            console.log("    🔑 NEW ROOT_TOKEN GENERATED 🔑");
-            console.log("==========================================");
-            console.log(`🚀 Your new ROOT_TOKEN is: ${tokenToSet}`);
-            console.log("⚠️  Please save this securely. You will need it to log in.");
-            console.log("==========================================\n");
-        } else {
-            console.log("✅ Custom ROOT_TOKEN has been set successfully.");
-        }
+        console.log("✅ Custom ROOT_TOKEN has been securely set.");
     } catch (err) {
-        console.error("Error checking/setting secrets. Continuing deployment...", err.message);
+        console.error("Error checking/setting secrets:", err.message);
+        process.exit(1);
     }
 }
 
