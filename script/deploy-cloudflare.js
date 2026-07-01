@@ -239,6 +239,14 @@ function setupDatabase() {
 
     console.log(`Using D1 database ${databaseName}: ${databaseId}`);
 
+    // Update wrangler.toml with the actual database_id so that subsequent wrangler commands (migrations and deploy) use it.
+    let tomlContent = readWranglerConfig();
+    if (tomlContent.includes("replace-with-your-d1-database-id")) {
+        console.log("Updating wrangler.toml with the new database_id...");
+        tomlContent = tomlContent.replace(/database_id\s*=\s*"[^"]+"/, `database_id = "${databaseId}"`);
+        fs.writeFileSync(WRANGLER_CONFIG_PATH, tomlContent, "utf8");
+    }
+
     runMigrations(bindingName);
 }
 
