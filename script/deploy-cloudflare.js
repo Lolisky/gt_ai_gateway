@@ -270,17 +270,27 @@ function setupRootToken() {
             return;
         }
 
-        const tokenToSet = providedToken || crypto.randomUUID();
-        console.log(providedToken ? "Setting custom ROOT_TOKEN from environment..." : "Generating new random ROOT_TOKEN (you won't be able to see it)...");
+        if (!providedToken) {
+            console.error("\n==========================================");
+            console.error(" ❌ [SECURITY ERROR] ROOT_TOKEN MISSING ❌");
+            console.error("==========================================");
+            console.error("For security reasons, we do not auto-generate the ROOT_TOKEN");
+            console.error("in the deployment logs, because GitHub Actions logs for public forks are PUBLIC!");
+            console.error("\n👉 HOW TO FIX: Go to your GitHub repository Settings -> Secrets and variables -> Actions,");
+            console.error("and add a new secret named 'ROOT_TOKEN' with your own custom password.");
+            console.error("Then re-run this deployment workflow.");
+            console.error("==========================================\n");
+            process.exit(1);
+        }
+
+        console.log("Setting custom ROOT_TOKEN from environment...");
         
         run("npx", ["wrangler", "secret", "put", "ROOT_TOKEN"], {
-            input: `${tokenToSet}\n`,
+            input: `${providedToken}\n`,
             stdio: ["pipe", "inherit", "inherit"],
         });
 
-        if (providedToken) {
-            console.log("✅ Custom ROOT_TOKEN has been securely set.");
-        }
+        console.log("✅ Custom ROOT_TOKEN has been securely set.");
     } catch (err) {
         console.error("Error checking/setting secrets:", err.message);
         process.exit(1);
