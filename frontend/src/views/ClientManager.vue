@@ -128,7 +128,7 @@
                                                     <span class="model-text">{{ backup.config.model }}</span>
                                                 </div>
                                                 <div class="config-flow">
-                                                    <a-tooltip>
+                                                    <a-tooltip placement="right">
                                                         <template #title>
                                                             <div v-if="backup.config.connectionMode === ClientConnectionMode.GATEWAY">
                                                                 客户端通过 GtAIGateway 连接上游。<br/>
