@@ -69,7 +69,7 @@ function resolveUpstreamFormat(
     const supportedAlternativeFormats: Partial<Record<ApiFormat, ApiFormat[]>> = {
         [ApiFormat.OPENAI]: [ApiFormat.ANTHROPIC],
         [ApiFormat.ANTHROPIC]: [ApiFormat.OPENAI, ApiFormat.RESPONSES],
-        [ApiFormat.RESPONSES]: [ApiFormat.ANTHROPIC],
+        [ApiFormat.RESPONSES]: [ApiFormat.ANTHROPIC, ApiFormat.OPENAI],
     };
 
     for (const fmt of supportedAlternativeFormats[clientFormat] ?? []) {

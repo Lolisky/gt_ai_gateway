@@ -4,6 +4,8 @@ import { AnthropicToOpenAIConverter } from "./AnthropicToOpenAIConverter";
 import { OpenAIToAnthropicConverter } from "./OpenAIToAnthropicConverter";
 import { ResponsesToAnthropicConverter } from "./ResponsesToAnthropicConverter";
 import { AnthropicToResponsesConverter } from "./AnthropicToResponsesConverter";
+import { ResponsesToOpenAIConverter } from "./ResponsesToOpenAIConverter";
+import { OpenAIToResponsesConverter } from "./OpenAIToResponsesConverter";
 
 export class ConverterFactory {
     /**
@@ -36,10 +38,12 @@ export class ConverterFactory {
             return new AnthropicToResponsesConverter(requestModel);
         }
 
-        // Responses ↔ OpenAI（Responses 和 Chat Completions 都是 OpenAI 体系，
-        // 但格式差异大，目前暂不支持互转，后续可扩展）
-        // if (clientFormat === ApiFormat.RESPONSES && upstreamFormat === ApiFormat.OPENAI) { ... }
-        // if (clientFormat === ApiFormat.OPENAI && upstreamFormat === ApiFormat.RESPONSES) { ... }
+        // Responses ↔ OpenAI
+        if (clientFormat === ApiFormat.RESPONSES && upstreamFormat === ApiFormat.OPENAI) {
+            return new ResponsesToOpenAIConverter(requestModel);
+        } else if (clientFormat === ApiFormat.OPENAI && upstreamFormat === ApiFormat.RESPONSES) {
+            return new OpenAIToResponsesConverter(requestModel);
+        }
 
         return null;
     }
