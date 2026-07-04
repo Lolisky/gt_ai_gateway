@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy
+  test:
+    name: Test
     runs-on: ubuntu-latest
     if: github.repository != 'alexazhou/gt_ai_gateway'
     steps:
@@ -23,8 +23,40 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          npm install
-          cd frontend && npm install && cd ..
+          npm ci
+          cd frontend && npm ci && cd ..
+
+      - name: Build Frontend
+        run: npm run frontend:build
+
+      - name: Run type check
+        run: npm run backend:test:type
+
+      - name: Run tests (Node mode)
+        run: npm run backend:test:node
+
+      - name: Run tests (Worker mode)
+        run: npm run backend:test:worker
+
+  deploy:
+    name: Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.repository != 'alexazhou/gt_ai_gateway'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+          cd frontend && npm ci && cd ..
 
       - name: Build Frontend
         run: npm run frontend:build
