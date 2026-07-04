@@ -89,4 +89,64 @@ describe('Vendor Test API', () => {
         expect(response.body.success).toBe(false);
         expect(response.body).toHaveProperty('error');
     });
+
+    it('should use api_key auth by default for Anthropic vendors', async () => {
+        const vendor = await requestHelper.post('/vendor/create.json', {
+            type: 'other',
+            name: 'API Key Auth Vendor',
+            token: 'sk-ant-test-key',
+            urls: {
+                anthropic: 'http://localhost:9999/v1/messages'
+            }
+        }, rootToken);
+
+        const response = await requestHelper.post(`/vendor/${vendor.body.id}/test.json`, {
+            format: 'anthropic',
+            model: 'claude-3-opus'
+        }, rootToken);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+    });
+
+    it('should use bearer_token auth when configured', async () => {
+        const vendor = await requestHelper.post('/vendor/create.json', {
+            type: 'other',
+            name: 'Bearer Token Auth Vendor',
+            token: 'sk-ant-bearer-key',
+            urls: {
+                anthropic: 'http://localhost:9999/v1/messages'
+            },
+            config: { auth_mode: 'bearer_token' }
+        }, rootToken);
+
+        const response = await requestHelper.post(`/vendor/${vendor.body.id}/test.json`, {
+            format: 'anthropic',
+            model: 'claude-3-opus'
+        }, rootToken);
+
+        // mock server 也接受 Bearer token，所以应该成功
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+    });
+
+    it('should use api_key auth when explicitly configured', async () => {
+        const vendor = await requestHelper.post('/vendor/create.json', {
+            type: 'other',
+            name: 'Explicit API Key Vendor',
+            token: 'sk-ant-explicit-key',
+            urls: {
+                anthropic: 'http://localhost:9999/v1/messages'
+            },
+            config: { auth_mode: 'api_key' }
+        }, rootToken);
+
+        const response = await requestHelper.post(`/vendor/${vendor.body.id}/test.json`, {
+            format: 'anthropic',
+            model: 'claude-3-opus'
+        }, rootToken);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+    });
 });

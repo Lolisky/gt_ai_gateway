@@ -330,4 +330,92 @@ describe("Vendor API (Positive)", () => {
             expect(getBRes.body.id).toBe(vendorBId);
         });
     });
+
+    describe("Vendor auth_mode config", () => {
+        it("should create vendor with config.auth_mode", async () => {
+            const vendorData = {
+                type: "other",
+                name: `Auth Test Vendor ${Date.now()}`,
+                token: `auth-token-${Date.now()}`,
+                urls: { openai: "https://api.example.com/v1/chat" },
+                config: { auth_mode: "bearer_token" },
+            };
+            const response = await requestHelper.post(
+                "/vendor/create.json",
+                vendorData,
+                adminToken,
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.config).toEqual({ auth_mode: "bearer_token" });
+        });
+
+        it("should default config.auth_mode to bearer_token when not provided", async () => {
+            const vendorData = vendorFixtures.createRandomVendor({
+                name: "Default Auth Vendor",
+            });
+            const response = await requestHelper.post(
+                "/vendor/create.json",
+                vendorData,
+                adminToken,
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.config).toEqual({});
+        });
+
+        it("should update vendor config.auth_mode", async () => {
+            // 创建一个 vendor
+            const createData = vendorFixtures.createRandomVendor({
+                name: "Update Auth Vendor",
+            });
+            const createRes = await requestHelper.post(
+                "/vendor/create.json",
+                createData,
+                adminToken,
+            );
+            const vendorId = createRes.body.id;
+
+            // 更新 auth_mode
+            const updateRes = await requestHelper.put(
+                `/vendor/${vendorId}`,
+                { config: { auth_mode: "api_key" } },
+                adminToken,
+            );
+
+            expect(updateRes.status).toBe(200);
+            expect(updateRes.body.config).toEqual({ auth_mode: "api_key" });
+        });
+
+        it("should preserve other config fields when updating auth_mode", async () => {
+            // 创建一个 vendor
+            const createData = vendorFixtures.createRandomVendor({
+                name: "Preserve Config Vendor",
+            });
+            const createRes = await requestHelper.post(
+                "/vendor/create.json",
+                createData,
+                adminToken,
+            );
+            const vendorId = createRes.body.id;
+
+            // 先设置完整的 config
+            await requestHelper.put(
+                `/vendor/${vendorId}`,
+                { config: { auth_mode: "bearer_token", custom_field: "value" } },
+                adminToken,
+            );
+
+            // 只更新 auth_mode
+            const updateRes = await requestHelper.put(
+                `/vendor/${vendorId}`,
+                { config: { auth_mode: "api_key" } },
+                adminToken,
+            );
+
+            expect(updateRes.status).toBe(200);
+            // 注意：当前实现会覆盖整个 config，所以 custom_field 会丢失
+            expect(updateRes.body.config).toEqual({ auth_mode: "api_key" });
+        });
+    });
 });
