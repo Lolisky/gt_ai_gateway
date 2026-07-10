@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Pre-commit hook: check version consistency and commit message
+set -e
+
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# ---- 1. Version consistency check ----
+echo "[pre-commit] Checking version consistency..."
+
+PKG_VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
+FE_VERSION=$(node -p "require('$ROOT_DIR/frontend/package.json').version")
+TAURI_CONF_VERSION=$(node -p "require('$ROOT_DIR/tauri/src-tauri/tauri.conf.json').version")
+CARGO_VERSION=$(grep '^version' "$ROOT_DIR/tauri/src-tauri/Cargo.toml" | head -1 | sed 's/.*"\(.*\)"/\1/')
+
+ERRORS=()
+
+if [ "$PKG_VERSION" != "$FE_VERSION" ]; then
+    ERRORS+=("package.json ($PKG_VERSION) != frontend/package.json ($FE_VERSION)")
+fi
+
+if [ "$PKG_VERSION" != "$TAURI_CONF_VERSION" ]; then
+    ERRORS+=("package.json ($PKG_VERSION) != tauri.conf.json ($TAURI_CONF_VERSION)")
+fi
+
+if [ "$PKG_VERSION" != "$CARGO_VERSION" ]; then
+    ERRORS+=("package.json ($PKG_VERSION) != Cargo.toml ($CARGO_VERSION)")
+fi
+
+if [ ${#ERRORS[@]} -gt 0 ]; then
+    echo "❌ Version mismatch:"
+    for err in "${ERRORS[@]}"; do
+        echo "   $err"
+    done
+    exit 1
+fi
+
+echo "✅ Version consistent: $PKG_VERSION"
+
+# ---- 2. Commit message check (claude) ----
+COMMIT_MSG_FILE="$ROOT_DIR/.git/COMMIT_MSG"
+if [ -f "$COMMIT_MSG_FILE" ]; then
+    if grep -qi "claude" "$COMMIT_MSG_FILE"; then
+        echo "❌ Commit message contains 'claude'. Please remove AI tool references from the commit message."
+        exit 1
+    fi
+fi
+
+echo "✅ Commit message check passed."
