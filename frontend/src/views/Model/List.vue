@@ -104,12 +104,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import type { TableColumnsType } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 import { InfoCircleOutlined } from '@ant-design/icons-vue';
 import { listModels } from '@/api/model';
 import { listVendors, fetchVendorModelsByIds } from '@/api/vendor';
+import { getConfig } from '@/api/config';
 import { useResourceTable } from '@/composables/useResourceTable';
 import { formatDate } from '@/utils/format';
 import { normalizeListResponse } from '@/utils/listResponse';
@@ -140,17 +141,25 @@ const testDialogRef = ref<InstanceType<typeof DialogTest>>();
 const vendors = ref<VendorType[]>([]);
 const vendorsLoading = ref(false);
 const vendorModelsMap = ref<Map<number, VendorModel>>(new Map());
+const moduleBillingEnabled = ref(false);
 
-const columns: TableColumnsType<Model> = [
-    { title: 'ID', key: 'id', dataIndex: 'id' },
-    { title: '模型名称', key: 'name', dataIndex: 'name' },
-    { title: '供应商', key: 'vendor_id', dataIndex: 'vendor_id' },
-    { title: '供应商模型', key: 'vendor_model_id', dataIndex: 'vendor_model_id' },
-    { title: '状态', key: 'enable', dataIndex: 'enable' },
-    { title: '价格', key: 'price' },
-    { title: '创建时间', key: 'created_at', dataIndex: 'created_at' },
-    { title: '操作', key: 'action', width: 120, fixed: 'right' as const },
-];
+const columns = computed<TableColumnsType<Model>>(() => {
+    const cols: TableColumnsType<Model> = [
+        { title: 'ID', key: 'id', dataIndex: 'id' },
+        { title: '模型名称', key: 'name', dataIndex: 'name' },
+        { title: '供应商', key: 'vendor_id', dataIndex: 'vendor_id' },
+        { title: '供应商模型', key: 'vendor_model_id', dataIndex: 'vendor_model_id' },
+        { title: '状态', key: 'enable', dataIndex: 'enable' },
+    ];
+    if (moduleBillingEnabled.value) {
+        cols.push({ title: '价格', key: 'price' });
+    }
+    cols.push(
+        { title: '创建时间', key: 'created_at', dataIndex: 'created_at' },
+        { title: '操作', key: 'action', width: 120, fixed: 'right' as const },
+    );
+    return cols;
+});
 
 async function loadVendors() {
     vendorsLoading.value = true;
@@ -165,6 +174,9 @@ async function loadVendors() {
 
 onMounted(() => {
     void loadVendors();
+    getConfig().then(config => {
+        moduleBillingEnabled.value = config.module_billing_enabled === 'true';
+    });
 });
 
 function handleCreate() {
