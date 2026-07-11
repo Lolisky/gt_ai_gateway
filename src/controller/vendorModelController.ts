@@ -1,37 +1,9 @@
 import { Context } from "hono";
 import { SgVendor } from "../model/sgVendor";
 import { SgVendorModel } from "../model/sgVendorModel";
+import vendorService from "../service/vendorService";
 import customError from "../util/customError";
 import { ApiFormat } from "../constants";
-
-const NON_LLM_PATTERNS = [
-    /embedding/i,
-    /rerank/i,
-    /\btts\b/i,
-    /text-to-speech/i,
-    /speech-to-text/i,
-    /whisper/i,
-    /dall-e/i,
-    /stable-diffusion/i,
-    /image/i,           // 包含 image 关键字（图像生成模型）
-    /image2video/i,
-    /video-gen/i,
-    /video/i,           // 视频生成模型
-    /ocr/i,             // OCR 模型
-    /livetranslate/i,   // 实时翻译
-    /realtime-asr/i,    // 实时语音识别
-    /moderation/i,
-    /^wanx/i,           // Aliyun wanx 图像/视频生成
-    /^wan\d/i,          // Aliyun wan2.7 等系列
-    /^cosyvoice/i,      // Aliyun 语音合成
-    /^sensevoice/i,     // Aliyun 语音识别
-    /^sambert/i,        // Aliyun 语音
-    /^paraformer/i,     // Aliyun 语音识别
-];
-
-function isLlmModel(modelId: string): boolean {
-    return !NON_LLM_PATTERNS.some(pattern => pattern.test(modelId));
-}
 
 
 function serializeVendorModel(m: SgVendorModel) {
@@ -68,43 +40,8 @@ async function fetchVendorModels(c: Context) {
         throw new customError.NotFoundError("Vendor not found");
     }
 
-    // 取 openai URL，去掉 /chat/completions 后缀，拼 /models
-    const openaiUrl = vendor.getUrlByFormat(ApiFormat.OPENAI);
-    const baseUrl = openaiUrl.replace(/\/chat\/completions$/, "");
-    const modelsUrl = `${baseUrl}/models`;
-
-    const token = vendor.token;
-    const authHeader = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-
-    try {
-        const response = await fetch(modelsUrl, {
-            method: "GET",
-            headers: {
-                Authorization: authHeader,
-                "Content-Type": "application/json",
-            },
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            throw new customError.AppError(
-                `Upstream returned ${response.status}: ${text}`,
-                502,
-            );
-        }
-
-        const data: any = await response.json();
-
-        // OpenAI /v1/models 返回 { object: "list", data: [{ id, ... }, ...] }
-        const models: string[] = Array.isArray(data?.data)
-            ? data.data.map((m: any) => m.id).filter(Boolean).filter(isLlmModel)
-            : [];
-
-        return c.json({ models });
-    } catch (err: any) {
-        if (err.statusCode) throw err;
-        throw new customError.AppError(`Failed to fetch models: ${err.message}`, 502);
-    }
+    const models = await vendorService.fetchUpstreamModels(vendor);
+    return c.json({ models });
 }
 
 

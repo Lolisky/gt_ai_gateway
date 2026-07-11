@@ -1,14 +1,13 @@
 import { Context } from "hono";
 import { SgVendor } from "../model/sgVendor";
 import { SgModel } from "../model/sgModel";
-import { resolveUpstreamFormat } from "../util/protocolUtils";
 import vendorService from "../service/vendorService";
 import vendorDefaultUrls from "../service/vendorDefaultUrls";
+import vendorTestService from "../service/vendorTestService";
 import ormService from "../service/ormService";
 import senderService from "../service/senderService";
 import customError from "../util/customError";
-import fetchUtil from "../util/fetchUtil";
-import { ApiFormat, VendorAuthMode } from "../constants";
+import { ApiFormat } from "../constants";
 import { createListResponse, parsePaginationQuery } from "../util/pagination";
 
 
@@ -190,132 +189,13 @@ async function testVendor(c: Context) {
     }
 
     const bodyJson = await c.req.json().catch(() => ({}));
-    const { format = ApiFormat.OPENAI, model = "test-ping", auto_convert = false } = bodyJson;
+    const result = await vendorTestService.testVendorConnectivity(vendor, {
+        format: bodyJson.format,
+        model: bodyJson.model,
+        auto_convert: bodyJson.auto_convert,
+    });
 
-    let requestFormat: ApiFormat = format;
-    let convertedFrom: string | undefined;
-    let convertedTo: string | undefined;
-
-    if (auto_convert) {
-        const upstreamFormat = resolveUpstreamFormat(format, vendor.getSupportedFormats());
-        if (upstreamFormat !== format) {
-            convertedFrom = format;
-            convertedTo = upstreamFormat;
-            requestFormat = upstreamFormat;
-        }
-    }
-
-    const url = vendor.getUrlByFormat(requestFormat);
-    const headers = new Headers();
-    let upstreamBody = "";
-
-    if (requestFormat === ApiFormat.ANTHROPIC) {
-        if (vendor.config.auth_mode === VendorAuthMode.BEARER_TOKEN) {
-            headers.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
-        } else {
-            headers.set("x-api-key", vendor.token);
-            headers.set("anthropic-version", "2023-06-01");
-        }
-        headers.set("Content-Type", "application/json");
-        upstreamBody = JSON.stringify({
-            model: model,
-            messages: [{ role: "user", content: "ping" }],
-            max_tokens: 1,
-        });
-    } else if (requestFormat === ApiFormat.RESPONSES) {
-        headers.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
-        headers.set("Content-Type", "application/json");
-        upstreamBody = JSON.stringify({
-            model: model,
-            input: "ping",
-            max_output_tokens: 16,
-        });
-    } else {
-        headers.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
-        headers.set("Content-Type", "application/json");
-        upstreamBody = JSON.stringify({
-            model: model,
-            messages: [{ role: "user", content: "ping" }],
-            max_tokens: 5,
-        });
-    }
-
-    try {
-        console.log(`[testVendor] Testing vendor ${vendor.name} (${vendor.id}) with model ${model} at ${url}`);
-        const startTime = Date.now();
-        // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
-        const dispatcher = await fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
-        const response = await fetch(url, {
-            method: "POST",
-            headers,
-            body: upstreamBody,
-            // dispatcher 是 undici (Node.js) 特有选项，不在 Cloudflare Workers 的 RequestInit 类型定义中
-            ...(dispatcher ? { dispatcher: dispatcher } as any : {}),
-        });
-        const duration = Date.now() - startTime;
-        const responseText = await response.text();
-        let responseData;
-        try {
-            responseData = JSON.parse(responseText);
-        } catch {
-            responseData = responseText;
-        }
-
-        const headerEntries = Array.from(headers.entries()).map(([key, value]) => {
-            if (key.toLowerCase() === 'authorization' || key.toLowerCase() === 'x-api-key') {
-                const visible = value.length > 12 ? value.slice(0, 8) + '****' + value.slice(-4) : '****';
-                return [key, visible];
-            }
-            return [key, value];
-        });
-
-        let requestBodyDisplay: unknown = upstreamBody;
-        try {
-            requestBodyDisplay = JSON.parse(upstreamBody);
-        } catch {}
-
-        return c.json({
-            success: response.ok,
-            status: response.status,
-            duration,
-            url,
-            converted_from: convertedFrom,
-            converted_to: convertedTo,
-            request_method: "POST",
-            request_headers: Object.fromEntries(headerEntries),
-            request_body: requestBodyDisplay,
-            response: responseData,
-        });
-    } catch (error: any) {
-        console.error(`[testVendor] Fetch failed for vendor ${vendor.name} (${vendor.id}) at ${url}:`, error);
-
-        let requestBodyDisplay: unknown = upstreamBody;
-        try {
-            requestBodyDisplay = JSON.parse(upstreamBody);
-        } catch {}
-
-        const headerEntries = Array.from(headers.entries()).map(([key, value]) => {
-            if (key.toLowerCase() === 'authorization' || key.toLowerCase() === 'x-api-key') {
-                const visible = value.length > 12 ? value.slice(0, 8) + '****' + value.slice(-4) : '****';
-                return [key, visible];
-            }
-            return [key, value];
-        });
-
-        let errorMessage = error.message || String(error);
-        if (error.cause) {
-            errorMessage += `\nCause: ${error.cause.message || String(error.cause)}`;
-        }
-
-        return c.json({
-            success: false,
-            error: errorMessage,
-            url,
-            request_method: "POST",
-            request_headers: Object.fromEntries(headerEntries),
-            request_body: requestBodyDisplay,
-        });
-    }
+    return c.json(result);
 }
 
 async function getPresetUrls(c: Context) {
