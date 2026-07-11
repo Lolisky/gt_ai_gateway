@@ -8,23 +8,27 @@
  * Cloudflare Workers 环境不使用 dispatcher 选项，传入 undefined 即走默认行为。
  */
 
-import { Agent } from "undici";
+import type { Agent as UndiciAgent } from "undici";
 
 /**
  * 跳过 TLS 证书验证的 undici Agent 实例（惰性创建，全局复用）。
  * 多次 fetch 共享同一个连接池，避免频繁创建 Agent 导致的资源泄露。
  */
-let insecureAgent: Agent | null = null;
+let insecureAgent: UndiciAgent | null = null;
 
 /**
  * 根据 skipTlsVerify 标志返回对应的 undici dispatcher。
  *
+ * 注意：undici 通过运行时动态 import 加载，避免 Worker 打包时引入
+ * undici（其内部使用 MessagePort，Cloudflare Worker 运行时不支持）。
+ *
  * @param skipTlsVerify - 是否跳过 TLS 证书验证
  * @returns 需要跳过时返回带 rejectUnauthorized: false 的 Agent；否则返回 undefined（默认行为）
  */
-export function getDispatcher(skipTlsVerify: boolean): Agent | undefined {
+export async function getDispatcher(skipTlsVerify: boolean): Promise<UndiciAgent | undefined> {
     if (skipTlsVerify) {
         if (!insecureAgent) {
+            const { Agent } = await import("undici");
             insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
         }
         return insecureAgent;

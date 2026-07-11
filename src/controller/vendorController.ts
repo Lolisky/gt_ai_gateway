@@ -244,7 +244,7 @@ async function testVendor(c: Context) {
         console.log(`[testVendor] Testing vendor ${vendor.name} (${vendor.id}) with model ${model} at ${url}`);
         const startTime = Date.now();
         // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
-        const dispatcher = fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
+        const dispatcher = await fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
         const response = await fetch(url, {
             method: "POST",
             headers,
