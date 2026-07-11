@@ -18,6 +18,17 @@
                     >
                         下一个请求
                     </a-button>
+                    <a-popconfirm
+                        title="确认删除这条请求记录？"
+                        ok-text="删除"
+                        cancel-text="取消"
+                        ok-type="danger"
+                        @confirm="handleDelete"
+                    >
+                        <a-button danger>
+                            删除
+                        </a-button>
+                    </a-popconfirm>
                 </a-space>
             </template>
         </a-page-header>
@@ -180,6 +191,7 @@ import { computed, onUnmounted, watch, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { useRecordStore } from '@/stores/record';
+import { deleteRecord } from '@/api/record';
 import { formatDate } from '@/utils/format';
 import JsonDownload from '@/utils/jsonDownload';
 import JsonViewer from '@/components/common/JsonViewer.vue';
@@ -319,6 +331,17 @@ function navigateToRecord(targetId: number) {
 
 function handleBack() {
     void router.push({ name: 'RecordList' });
+}
+
+async function handleDelete() {
+    if (!recordStore.currentRecord) return;
+    try {
+        await deleteRecord(recordStore.currentRecord.id);
+        message.success('删除成功');
+        void router.push({ name: 'RecordList' });
+    } catch {
+        message.error('删除失败');
+    }
 }
 
 onUnmounted(() => {
