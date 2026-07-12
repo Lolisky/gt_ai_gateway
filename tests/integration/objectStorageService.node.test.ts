@@ -67,6 +67,14 @@ function createMockR2Bucket(): R2Bucket {
     } as unknown as R2Bucket;
 }
 
+function getStoredDatabaseObject(key: string): { object_key: string; data: Buffer } | null {
+    const rows = dbHelper.query<{ object_key: string; data: Buffer }>(
+        "SELECT object_key, data FROM storage_record WHERE object_key = ?",
+        [key],
+    );
+    return rows[0] ?? null;
+}
+
 describe("objectStorageService", () => {
     const originalMode = ormService.mode;
 
@@ -188,13 +196,18 @@ describe("objectStorageService", () => {
     });
 
     it("uses database storage in auto mode when worker mode has no R2 bucket", async () => {
+        const key = "auto/worker-without-r2";
         ormService.mode = RunMode.WORKER;
         objectStorageService.setR2Bucket(null);
         await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "auto");
 
-        await objectStorageService.putText("auto/worker-without-r2", "database-value");
+        await objectStorageService.putText(key, "database-value");
 
-        expect(await objectStorageService.getText("auto/worker-without-r2")).toBe("database-value");
+        const row = getStoredDatabaseObject(key);
+        expect(row).not.toBeNull();
+        expect(row!.object_key).toBe(key);
+        expect(row!.data.toString()).toBe("database-value");
+        expect(await objectStorageService.getText(key)).toBe("database-value");
     });
 
     it("uses database storage in auto mode outside worker even when a bucket is available", async () => {
