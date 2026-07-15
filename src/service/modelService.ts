@@ -23,10 +23,10 @@ async function listEnabledModels() {
         .where("enable", 1)
         .orderBy("id", "asc")
         .get();
-    const modelList = models.toArray();
+    const modelList = models.toArray<SgModel>();
     const vendorIds = [...new Set(modelList.map(model => model.vendor_id as number))];
     const vendorList = vendorIds.length > 0
-        ? (await SgVendor.query().whereIn("id", vendorIds).get()).toArray()
+        ? (await SgVendor.query().whereIn("id", vendorIds).get()).toArray<SgVendor>()
         : [];
     const vendorMap = new Map(vendorList.map(vendor => [vendor.id, vendor]));
 
