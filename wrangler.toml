@@ -1,4 +1,4 @@
-name = "gt-ai-gateway"
+name = "gt-gateway"
 main = "src/index.ts"
 compatibility_date = "2025-01-19"
 

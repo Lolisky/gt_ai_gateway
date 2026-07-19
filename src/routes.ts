@@ -170,6 +170,13 @@ app.post("/llm/v1/chat/completions", llmApiMiddleware.requireLlmRequestContext(A
 app.post("/llm/v1/messages", llmApiMiddleware.requireLlmRequestContext(ApiFormat.ANTHROPIC), gatewayController.anthropicMessages);
 app.post("/llm/v1/responses", llmApiMiddleware.requireLlmRequestContext(ApiFormat.RESPONSES), gatewayController.responsesApi);
 
+// Legacy path compatibility: the pre-upgrade deployment exposed the LLM API under /v1/*.
+// Keep these aliases so existing clients configured with a /v1 base URL keep working.
+app.get("/v1/models", llmApiMiddleware.requireLlmModelsAuth, modelController.listLlmModels);
+app.post("/v1/chat/completions", llmApiMiddleware.requireLlmRequestContext(ApiFormat.OPENAI), gatewayController.chatCompletions);
+app.post("/v1/messages", llmApiMiddleware.requireLlmRequestContext(ApiFormat.ANTHROPIC), gatewayController.anthropicMessages);
+app.post("/v1/responses", llmApiMiddleware.requireLlmRequestContext(ApiFormat.RESPONSES), gatewayController.responsesApi);
+
 // Test endpoints
 app.delete("/test/cache/clear", async (c) => {
     // Only allow in test mode
