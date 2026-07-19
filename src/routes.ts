@@ -139,6 +139,7 @@ app.get("/model/list.json", authMiddleware.requireAdmin, modelController.listMod
 app.post("/model/batch.json", authMiddleware.requireAdmin, modelController.getModelsByIds);
 app.get("/model/:id", authMiddleware.requireAdmin, modelController.getModel);
 app.put("/model/:id", authMiddleware.requireAdmin, modelController.updateModel);
+app.delete("/model/:id", authMiddleware.requireAdmin, modelController.deleteModel);
 
 // User (需要管理员权限)
 app.get("/user/list.json", authMiddleware.requireAdmin, userController.listUsers);

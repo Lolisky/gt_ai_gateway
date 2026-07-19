@@ -22,3 +22,7 @@ export async function createModel(data: CreateModelRequest): Promise<Model> {
 export async function updateModel(id: number, data: UpdateModelRequest): Promise<Model> {
     return request.put(`/model/${id}`, data);
 }
+
+export async function deleteModel(id: number): Promise<{ success: boolean }> {
+    return request.delete(`/model/${id}`);
+}

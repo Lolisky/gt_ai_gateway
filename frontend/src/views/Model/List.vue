@@ -106,6 +106,9 @@
                         <a-button type="link" style="padding: 0" @click="handleTest(record)">
                             测试
                         </a-button>
+                        <a-button type="link" danger style="padding: 0" @click="handleDelete(record)">
+                            删除
+                        </a-button>
                     </a-space>
                 </template>
             </template>
@@ -119,8 +122,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import type { TableColumnsType } from 'ant-design-vue';
+import { Modal } from 'ant-design-vue/es';
 import { InfoCircleOutlined } from '@ant-design/icons-vue';
-import { listModels } from '@/api/model';
+import { listModels, deleteModel } from '@/api/model';
+import { notifyRequestError, notifySuccess } from '@/utils/requestFeedback';
 import { listVendors, fetchVendorModelsByIds } from '@/api/vendor';
 import { getConfig } from '@/api/config';
 import { useResourceTable } from '@/composables/useResourceTable';
@@ -164,7 +169,7 @@ const columns = computed<TableColumnsType<Model>>(() => {
     }
     cols.push(
         { title: '创建时间', key: 'created_at', dataIndex: 'created_at' },
-        { title: '操作', key: 'action', width: 120, fixed: 'right' as const },
+        { title: '操作', key: 'action', width: 160, fixed: 'right' as const },
     );
     return cols;
 });
@@ -201,6 +206,25 @@ function handleSuccess() {
 
 function handleView(record: Model) {
     dialogFormRef.value?.openView(record);
+}
+
+function handleDelete(record: Model) {
+    Modal.confirm({
+        title: '确认删除',
+        content: `确定要删除模型 "${record.name}" 吗？删除后客户端再以该名称请求将返回模型不存在。`,
+        okText: '确定',
+        cancelText: '取消',
+        okType: 'danger',
+        onOk: async () => {
+            try {
+                await deleteModel(record.id);
+                notifySuccess('删除成功');
+                loadData();
+            } catch (error) {
+                notifyRequestError(error, '删除失败');
+            }
+        },
+    });
 }
 
 function handleTest(record: Model) {
