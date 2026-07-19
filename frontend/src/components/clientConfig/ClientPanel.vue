@@ -7,9 +7,6 @@
                     <a-tag :color="client.installed ? 'green' : 'default'">
                         {{ client.installed ? '已安装' : '未检测到' }}
                     </a-tag>
-                    <a-tag :color="client.configured ? 'blue' : 'default'">
-                        {{ client.configured ? '已配置' : '未配置' }}
-                    </a-tag>
                     <div style="flex: 1"></div>
                     <a-button
                         size="small"
