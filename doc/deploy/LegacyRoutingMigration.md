@@ -17,35 +17,36 @@ Only the new D1 is written. Keep the old D1 unchanged as the rollback point.
 
 ## Fallback semantics
 
+- Legacy `vendor.priority` semantics (confirmed with the original designer): **smaller value = higher preference = tried first**.
 - `routing_mode = single`: one upstream.
-- `routing_mode = failover`: `routing_config.upstreams` is ordered from first choice to fallback.
+- `routing_mode = failover`: `routing_config.upstreams` is ordered from first choice to last fallback (priority ascending).
 - Every upstream has an explicit `vendor_id` and `vendor_model_id`; this is essential for aliases.
 - On an upstream failure, C advances through the array. Health cooldown can temporarily skip an unhealthy upstream.
 - The upstream request model is `vendor_model.model_id`; the client/request model remains `model.name`.
 
-## Verified mapping
+## Verified mapping (first choice → last fallback, vendor priority in parentheses)
 
-| Request model name(s) | Fallback order (vendor / vendor_model_id) |
+| Request model name(s) | Order (vendor(prio) / vendor_model_id) |
 |---|---|
-| `claude-fable-5` | teamo / vm67 |
-| `claude-opus-4-8` | teamo / vm66 → Krill Plan / vm73 |
-| `claude-sonnet-5` | teamo / vm22 → Krill Plan / vm38 |
-| `deepseek-v4-flash` | DeepSeek / vm29 → OpenCode Go Old / vm9 → OpenCode Go New / vm15 → aliyun / vm20 |
-| `deepseek-v4-flash:free` | DeepSeek / vm29 → OpenCode Go Old / vm9 → OpenCode Go New / vm15 → aliyun / vm20 |
-| `deepseek-ai/DeepSeek-V4-Flash` | DeepSeek / vm29 → OpenCode Go Old / vm9 → OpenCode Go New / vm15 → aliyun / vm20 |
-| `deepseek-v4-pro` | DeepSeek / vm30 → OpenCode Go Old / vm10 → OpenCode Go New / vm14 → aliyun 2 / vm56 → aliyun / vm19 |
-| `deepseek-ai/DeepSeek-V4-Pro` | DeepSeek / vm30 → OpenCode Go Old / vm10 → OpenCode Go New / vm14 → aliyun 2 / vm56 → aliyun / vm19 |
-| `gemini-3.1-pro-preview` | teamo / vm68 → Krill Plan / vm72 |
-| `gemini-3.5-flash` | teamo / vm25 → Krill Plan / vm37 |
-| `glm-5.2` | teamo / vm71 → OpenCode Go Old / vm11 → OpenCode Go New / vm13 → aliyun 2 / vm57 → aliyun / vm17 → zai / vm80 |
-| `GLM-5.2` | teamo / vm71 → OpenCode Go Old / vm11 → OpenCode Go New / vm13 → aliyun 2 / vm57 → aliyun / vm17 → zai / vm80 |
-| `zai-org/GLM-5.2` | teamo / vm71 → OpenCode Go Old / vm11 → OpenCode Go New / vm13 → aliyun 2 / vm57 → aliyun / vm17 → zai / vm80 |
-| `gpt-5.4-mini` | teamo / vm42 → Krill Plan / vm39 |
-| `gpt-5.6-luna` | Krill Plan / vm76 |
-| `gpt-5.6-sol` | teamo / vm69 → Krill Plan / vm74 |
-| `gpt-5.6-terra` | teamo / vm70 → Krill Plan / vm75 |
-| `grok-4.5` | Krill Plan / vm77 |
-| `qwen3.8-max-preview` | aliyun 2 / vm55 → aliyun / vm53 |
+| `claude-fable-5` | teamo(90) / vm67 |
+| `claude-opus-4-8` | Krill Plan(10) / vm73 → teamo(90) / vm66 |
+| `claude-sonnet-5` | Krill Plan(10) / vm38 → teamo(90) / vm22 |
+| `deepseek-v4-flash` | aliyun(20) / vm20 → OpenCode Go New(25) / vm15 → OpenCode Go Old(26) / vm9 → DeepSeek(50) / vm29 |
+| `deepseek-v4-flash:free` | aliyun(20) / vm20 → OpenCode Go New(25) / vm15 → OpenCode Go Old(26) / vm9 → DeepSeek(50) / vm29 |
+| `deepseek-ai/DeepSeek-V4-Flash` | aliyun(20) / vm20 → OpenCode Go New(25) / vm15 → OpenCode Go Old(26) / vm9 → DeepSeek(50) / vm29 |
+| `deepseek-v4-pro` | aliyun(20) / vm19 → aliyun 2(21) / vm56 → OpenCode Go New(25) / vm14 → OpenCode Go Old(26) / vm10 → DeepSeek(50) / vm30 |
+| `deepseek-ai/DeepSeek-V4-Pro` | aliyun(20) / vm19 → aliyun 2(21) / vm56 → OpenCode Go New(25) / vm14 → OpenCode Go Old(26) / vm10 → DeepSeek(50) / vm30 |
+| `gemini-3.1-pro-preview` | Krill Plan(10) / vm72 → teamo(90) / vm68 |
+| `gemini-3.5-flash` | Krill Plan(10) / vm37 → teamo(90) / vm25 |
+| `glm-5.2` | zai(4) / vm80 → aliyun(20) / vm17 → aliyun 2(21) / vm57 → OpenCode Go New(25) / vm13 → OpenCode Go Old(26) / vm11 → teamo(90) / vm71 |
+| `GLM-5.2` | zai(4) / vm80 → aliyun(20) / vm17 → aliyun 2(21) / vm57 → OpenCode Go New(25) / vm13 → OpenCode Go Old(26) / vm11 → teamo(90) / vm71 |
+| `zai-org/GLM-5.2` | zai(4) / vm80 → aliyun(20) / vm17 → aliyun 2(21) / vm57 → OpenCode Go New(25) / vm13 → OpenCode Go Old(26) / vm11 → teamo(90) / vm71 |
+| `gpt-5.4-mini` | Krill Plan(10) / vm39 → teamo(90) / vm42 |
+| `gpt-5.6-luna` | Krill Plan(10) / vm76 |
+| `gpt-5.6-sol` | Krill Plan(10) / vm74 → teamo(90) / vm69 |
+| `gpt-5.6-terra` | Krill Plan(10) / vm75 → teamo(90) / vm70 |
+| `grok-4.5` | Krill Plan(10) / vm77 |
+| `qwen3.8-max-preview` | aliyun(20) / vm53 → aliyun 2(21) / vm55 |
 
 ## Five compatibility aliases
 
@@ -66,4 +67,4 @@ Aliases found in the source configuration:
 SELECT id, name, enable, routing_mode, routing_config FROM model ORDER BY id;
 ```
 
-For each row, confirm that every `vendor_model_id` exists and belongs to the declared `vendor_id`.
+For each row, confirm that every `vendor_model_id` exists and belongs to the declared `vendor_id`, and that vendor priorities are non-decreasing along each chain.
