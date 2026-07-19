@@ -4,8 +4,6 @@
 -- Alias compatibility is implemented as separate model rows, not application alias code.
 -- Priority semantics (confirmed with the original designer): SMALLER vendor.priority = tried FIRST.
 -- Therefore routing_config.upstreams is sorted by vendor.priority ASCENDING.
-BEGIN TRANSACTION;
-
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (1, 'claude-fable-5', 1, '{}', 'single', '{"upstreams":[{"vendor_id":6,"vendor_model_id":67,"enabled":true}]}');
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (2, 'claude-opus-4-8', 1, '{}', 'failover', '{"upstreams":[{"vendor_id":3,"vendor_model_id":73,"enabled":true},{"vendor_id":6,"vendor_model_id":66,"enabled":true}]}');
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (3, 'claude-sonnet-5', 1, '{}', 'failover', '{"upstreams":[{"vendor_id":3,"vendor_model_id":38,"enabled":true},{"vendor_id":6,"vendor_model_id":22,"enabled":true}]}');
@@ -25,5 +23,3 @@ INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUE
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (17, 'gpt-5.6-terra', 1, '{}', 'failover', '{"upstreams":[{"vendor_id":3,"vendor_model_id":75,"enabled":true},{"vendor_id":6,"vendor_model_id":70,"enabled":true}]}');
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (18, 'grok-4.5', 1, '{}', 'single', '{"upstreams":[{"vendor_id":3,"vendor_model_id":77,"enabled":true}]}');
 INSERT INTO model (id, name, enable, prices, routing_mode, routing_config) VALUES (19, 'qwen3.8-max-preview', 1, '{}', 'failover', '{"upstreams":[{"vendor_id":5,"vendor_model_id":53,"enabled":true},{"vendor_id":10,"vendor_model_id":55,"enabled":true}]}');
-
-COMMIT;

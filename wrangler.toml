@@ -28,8 +28,8 @@ bucket_name = "gt-ai-gateway-objects"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "gt_ai_gateway"
-database_id = "replace-with-your-d1-database-id"
+database_name = "gt_ai_gateway_v2"
+database_id = "f95c5a35-913f-49af-bb79-4856690fe1bf"
 
 # [ai]
 # binding = "AI"
