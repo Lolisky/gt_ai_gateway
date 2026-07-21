@@ -34,11 +34,12 @@ export enum ModelRoutingMode {
 export const UPSTREAM_FAILURE_COOLDOWN_MS = 30_000;
 
 // [image-patch 2026-07-22] image 上游故障形态=挂起数小时~数天(如 krill 2026-07-21)，
-// 短冷却会导致每个请求都拿超时去"探尸"，故 image 冷却 24h；恢复探测成本=每天1次超时
-export const IMAGE_UPSTREAM_FAILURE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// 短冷却会导致每个请求都拿超时去"探尸"。冷却 4h（用户钦定）：恢复期每天最多6次探测
+export const IMAGE_UPSTREAM_FAILURE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
-// [image-patch 2026-07-22] image 上游总超时：gpt-image-2 正常 18~53s，60s 区分"慢"与"挂死"
-export const IMAGE_UPSTREAM_TIMEOUT_MS = 60_000;
+// [image-patch 2026-07-22] image 上游总超时(到响应头为止)：gpt-image-2 正常 18~62s
+// (krill 实测有 61.5s 慢成功案例)，90s 给慢图留余量同时仍能识别挂死
+export const IMAGE_UPSTREAM_TIMEOUT_MS = 90_000;
 
 export const RETRYABLE_UPSTREAM_STATUS_CODES = [
     401,
