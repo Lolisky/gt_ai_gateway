@@ -87,6 +87,9 @@ async function sendRequestToUpstream(
         "referer",
         "connection",
         "keep-alive",
+        // [rn2-patch 2026-07-21] expect 是 hop-by-hop 头(curl 大body自动带 Expect:100-continue)，
+        // 透传给 undici 会直接抛 "expect header not supported" 导致上游被误标失败
+        "expect",
         "proxy-authenticate",
         "proxy-authorization",
         "te",
@@ -105,6 +108,15 @@ async function sendRequestToUpstream(
             finalHeaders.set(key, value);
         }
     }
+
+    // [rn2-patch 2026-07-21] 统一上游 User-Agent 为浏览器指纹。
+    // 背景：客户端脚本UA(python-requests等)并发时被 vendor 侧 Cloudflare 按指纹 1010 拦截；
+    // CLI-agent UA(codex_cli_rs等)在小请求直连可通过，但 大payload+8并发 会被 vendor WAF 全灭(实测8/8 1010)。
+    // 浏览器UA实测最稳(300KBx8: 5x200+3x vendor自身1102, 0x1010)。Worker时代egress指纹不同未触发，Node迁移后必须固定。
+    finalHeaders.set(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    );
 
     if (upstreamFormat === ApiFormat.ANTHROPIC) {
         if (vendor.config.auth_mode === VendorAuthMode.BEARER_TOKEN) {
