@@ -24,12 +24,22 @@ async function responsesApi(c: Context) {
     const user = c.get("user") as SgUser;
     const modelConfig = c.get("modelConfig") as SgModel;
     const body = c.get("requestBody") as string;
-    
+
     return sender.sendRequest(c, user, modelConfig, ApiFormat.RESPONSES, body);
+}
+
+// [image-patch 2026-07-22] 文生图透传（format===upstreamFormat 时无协议转换，非流式 JSON 直返）
+async function imagesGenerations(c: Context) {
+    const user = c.get("user") as SgUser;
+    const modelConfig = c.get("modelConfig") as SgModel;
+    const body = c.get("requestBody") as string;
+
+    return sender.sendRequest(c, user, modelConfig, ApiFormat.IMAGE, body);
 }
 
 export default {
     chatCompletions,
     anthropicMessages,
     responsesApi,
+    imagesGenerations,
 };

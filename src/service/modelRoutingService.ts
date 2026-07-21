@@ -3,6 +3,7 @@ import {
     ModelRoutingMode,
     RETRYABLE_UPSTREAM_STATUS_CODES,
     UPSTREAM_FAILURE_COOLDOWN_MS,
+    IMAGE_UPSTREAM_FAILURE_COOLDOWN_MS,
 } from "../constants";
 import { SgModel } from "../model/sgModel";
 import { SgVendor } from "../model/sgVendor";
@@ -168,7 +169,11 @@ function isCoolingDown(
     }
 
     const failedAt = Date.parse(lastFailureAt);
-    return Number.isFinite(failedAt) && now - failedAt < UPSTREAM_FAILURE_COOLDOWN_MS;
+    // [image-patch 2026-07-22] image 冷却 24h（chat 保持 30s），按 upstreamFormat 隔离互不影响
+    const cooldownMs = upstreamFormat === ApiFormat.IMAGE
+        ? IMAGE_UPSTREAM_FAILURE_COOLDOWN_MS
+        : UPSTREAM_FAILURE_COOLDOWN_MS;
+    return Number.isFinite(failedAt) && now - failedAt < cooldownMs;
 }
 
 

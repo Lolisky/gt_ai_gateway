@@ -4,7 +4,7 @@ import { SgUser } from "../model/sgUser";
 import { SgVendor } from "../model/sgVendor";
 import { SgVendorModel } from "../model/sgVendorModel";
 import recordService from "./recordService";
-import { SgRecordStatus, ApiFormat, VendorAuthMode } from "../constants";
+import { SgRecordStatus, ApiFormat, VendorAuthMode, IMAGE_UPSTREAM_TIMEOUT_MS } from "../constants";
 import pluginService from "./pluginService";
 import hostService from "./hostService";
 import { ConverterFactory } from "../util/protocolConverter/ConverterFactory";
@@ -200,7 +200,12 @@ async function sendRequestToUpstream(
             method: "POST",
             headers: finalHeaders,
             body: upstreamBody,
-            signal: c.req.raw.signal,
+            // [image-patch 2026-07-22] image 上游挂起不报错(krill 2026-07-21 实测挂起>280s)。
+            // 60s 超时 abort 后客户端 signal 未断 → catch 走 markFailure → failover 切下一上游。
+            // 仅 image 加超时：chat 是流式长连接，总超时会误杀长 thinking。
+            signal: format === ApiFormat.IMAGE
+                ? AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(IMAGE_UPSTREAM_TIMEOUT_MS)])
+                : c.req.raw.signal,
             // dispatcher 是 undici (Node.js) 特有选项，不在 Cloudflare Workers 的 RequestInit 类型定义中
             ...(dispatcher ? { dispatcher: dispatcher } as any : {}),
         });

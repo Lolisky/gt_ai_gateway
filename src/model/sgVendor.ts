@@ -120,6 +120,14 @@ class SgVendor extends Model {
             }
         }
 
+        // [image-patch 2026-07-22] image 走独立 urls.image 键（与 chat 端点解耦）
+        if (format === ApiFormat.IMAGE) {
+            url = urls[ApiFormat.IMAGE];
+            if (url) {
+                return url.includes("/images/generations") ? url : url.replace(/\/$/, "") + "/images/generations";
+            }
+        }
+
         throw new customError.AppError(`vendor does not have url for ${format} format`, 400);
     }
 
@@ -134,6 +142,7 @@ class SgVendor extends Model {
         if (urls[ApiFormat.OPENAI]) formats.push(ApiFormat.OPENAI);
         if (urls[ApiFormat.ANTHROPIC]) formats.push(ApiFormat.ANTHROPIC);
         if (urls[ApiFormat.RESPONSES]) formats.push(ApiFormat.RESPONSES);
+        if (urls[ApiFormat.IMAGE]) formats.push(ApiFormat.IMAGE);
 
         return formats;
     }

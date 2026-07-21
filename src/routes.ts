@@ -177,6 +177,9 @@ app.get("/v1/models", llmApiMiddleware.requireLlmModelsAuth, modelController.lis
 app.post("/v1/chat/completions", llmApiMiddleware.requireLlmRequestContext(ApiFormat.OPENAI), gatewayController.chatCompletions);
 app.post("/v1/messages", llmApiMiddleware.requireLlmRequestContext(ApiFormat.ANTHROPIC), gatewayController.anthropicMessages);
 app.post("/v1/responses", llmApiMiddleware.requireLlmRequestContext(ApiFormat.RESPONSES), gatewayController.responsesApi);
+// [image-patch 2026-07-22] 文生图端点（OpenAI 兼容格式）
+app.post("/llm/v1/images/generations", llmApiMiddleware.requireLlmRequestContext(ApiFormat.IMAGE), gatewayController.imagesGenerations);
+app.post("/v1/images/generations", llmApiMiddleware.requireLlmRequestContext(ApiFormat.IMAGE), gatewayController.imagesGenerations);
 
 // Test endpoints
 app.delete("/test/cache/clear", async (c) => {
