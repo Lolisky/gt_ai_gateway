@@ -193,6 +193,23 @@ async function sendRequestToUpstream(
 
     // 7. 发起上游请求，拿到响应头后立即判断响应类型
     let upstreamRes: Response;
+    // [image-patch 2026-07-22] image 上游挂起不报错(krill 2026-07-21 实测挂起>280s)。
+    // 60s 超时 abort 后客户端 signal 未断 → catch 走 markFailure → failover 切下一上游。
+    // 仅 image 加超时：chat 是流式长连接，总超时会误杀长 thinking。
+    // 注意：Node 20.20 的 undici 对 AbortSignal.any 复合信号不生效(实测挂死>90s)，必须手动 controller。
+    // 覆盖范围=到响应头到达为止（image 为非流式单次 JSON，挂起均发生在等头阶段）。
+    let imageAbort: AbortController | null = null;
+    let imageTimer: ReturnType<typeof setTimeout> | null = null;
+    let onClientAbort: (() => void) | null = null;
+    if (format === ApiFormat.IMAGE) {
+        imageAbort = new AbortController();
+        imageTimer = setTimeout(
+            () => imageAbort!.abort(new Error(`image upstream timeout ${IMAGE_UPSTREAM_TIMEOUT_MS}ms`)),
+            IMAGE_UPSTREAM_TIMEOUT_MS,
+        );
+        onClientAbort = () => imageAbort!.abort(c.req.raw.signal.reason);
+        c.req.raw.signal.addEventListener("abort", onClientAbort, { once: true });
+    }
     try {
         // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
         const dispatcher = await fetchUtil.getDispatcher(vendor.config);
@@ -200,12 +217,7 @@ async function sendRequestToUpstream(
             method: "POST",
             headers: finalHeaders,
             body: upstreamBody,
-            // [image-patch 2026-07-22] image 上游挂起不报错(krill 2026-07-21 实测挂起>280s)。
-            // 60s 超时 abort 后客户端 signal 未断 → catch 走 markFailure → failover 切下一上游。
-            // 仅 image 加超时：chat 是流式长连接，总超时会误杀长 thinking。
-            signal: format === ApiFormat.IMAGE
-                ? AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(IMAGE_UPSTREAM_TIMEOUT_MS)])
-                : c.req.raw.signal,
+            signal: imageAbort ? imageAbort.signal : c.req.raw.signal,
             // dispatcher 是 undici (Node.js) 特有选项，不在 Cloudflare Workers 的 RequestInit 类型定义中
             ...(dispatcher ? { dispatcher: dispatcher } as any : {}),
         });
@@ -217,6 +229,9 @@ async function sendRequestToUpstream(
             end_at: new Date(),
         });
         throw e;
+    } finally {
+        if (imageTimer) clearTimeout(imageTimer);
+        if (onClientAbort) c.req.raw.signal.removeEventListener("abort", onClientAbort);
     }
     console.log("upstream response status:", upstreamRes.status);
 
